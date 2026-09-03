@@ -3,8 +3,14 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
+import { updateService } from './services';
 
-registerSW({ immediate: true });
+registerSW({
+  immediate: true,
+  onRegisteredSW(_swUrl, registration) {
+    updateService.setRegistration(registration);
+  },
+});
 
 if (import.meta.env.DEV) {
   void import('./store/useStore').then((m) => {

@@ -10,3 +10,5 @@ export { vibrationService } from './vibrationService';
 export type { VibrationService } from './vibrationService';
 export { themeService } from './themeService';
 export type { ThemeService } from './themeService';
+export { updateService } from './updateService';
+export type { UpdateService, UpdateResult } from './updateService';
