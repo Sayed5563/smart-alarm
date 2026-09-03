@@ -3,13 +3,13 @@
 [![CI](https://github.com/Sayed5563/smart-alarm/actions/workflows/ci.yml/badge.svg)](https://github.com/Sayed5563/smart-alarm/actions/workflows/ci.yml)
 [![Deploy](https://github.com/Sayed5563/smart-alarm/actions/workflows/deploy.yml/badge.svg)](https://github.com/Sayed5563/smart-alarm/actions/workflows/deploy.yml)
 ![PWA](https://img.shields.io/badge/PWA-installable-5c9bff)
+![Android](https://img.shields.io/badge/Android-Capacitor-3ddc84)
 ![Offline](https://img.shields.io/badge/offline-first-45c98a)
 ![React](https://img.shields.io/badge/React-18-61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
 ![Vite](https://img.shields.io/badge/Vite-5-646cff)
-![Tests](https://img.shields.io/badge/tests-74%20passing-45c98a)
+![Tests](https://img.shields.io/badge/tests-79%20passing-45c98a)
 ![License](https://img.shields.io/badge/license-MIT-ff9a5e)
-![Runtime deps](https://img.shields.io/badge/runtime%20deps-4-ff9a5e)
 
 An offline‑first, installable **Progressive Web App** alarm clock with "smart
 wake‑up" features designed to make it genuinely hard to fall back asleep.
@@ -182,7 +182,9 @@ A normal browser / PWA **cannot guarantee native‑style alarms**. Specifically:
 - If the browser is fully terminated, or the OS suspends / kills the tab, or
   background execution is restricted, **timers stop and the alarm will not fire
   on time**. Keeping the tab open (or the installed app alive in the background)
-  is the most reliable setup.
+  is the most reliable setup. **→ For alarms that fire when the app is fully
+  closed, build the Android app (`docs/ANDROID.md`)** — it schedules through
+  Android's `AlarmManager`.
 - Audio is blocked until you interact with the page. The Home screen has an
   **"Enable alarm sounds"** button that unlocks the Web Audio context. If an
   alarm fires before you've done this, the ringing screen still appears (with
@@ -245,10 +247,25 @@ default sound automatically.
 
 ---
 
-## Future Android integration
+## Android app
 
-The app is structured so it can be wrapped with **Capacitor** and have its
-timing + notifications replaced by native APIs without touching the UI:
+The app is wrapped with **Capacitor** for Android. `Capacitor.isNativePlatform()`
+swaps the web timer scheduler for `nativeAlarmScheduler`, which registers every
+upcoming occurrence as an exact `@capacitor/local-notifications` schedule
+(`allowWhileIdle: true`) — **so alarms fire even when the app is fully closed and
+the phone is idle.** The UI, store, ring screen and every other service are
+unchanged; only the `AlarmScheduler` body differs, behind the shared
+`configure / start / stop / sync / peek` contract.
+
+```bash
+npm run android:open   # build web → cap sync → open Android Studio → Run
+```
+
+Full instructions, the web↔native seam, and what "Phase B" (full-screen /
+DND-bypassing alarm service) still needs: **`docs/ANDROID.md`**.
+
+The services all sit behind small interfaces so the same swap is possible for
+iOS or other native shells:
 
 ```
 AudioService        · play / preview / unlock / stopAll
@@ -258,13 +275,6 @@ StorageService      · get/put/delete sound & wallpaper blobs, estimate, persist
 VibrationService    · buzz / startRepeating / stop
 ThemeService        · apply / watchSystem
 ```
-
-Every component and page talks only to these services (never to `window.*`
-alarm/timer APIs directly). A native build replaces the body of `AlarmScheduler`
-with `@capacitor/local-notifications` / Android `AlarmManager`, and
-`NotificationService` with native channels — the `onDue` contract and the store
-stay identical. See **`docs/ANDROID.md`** for a step‑by‑step plan and a sample
-`capacitor.config.ts`.
 
 ---
 
