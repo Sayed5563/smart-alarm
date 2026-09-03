@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  build:
+  verify:
+    name: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
