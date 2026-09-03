@@ -26,8 +26,12 @@ export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: (
     [alarms, settings, activeIds, now],
   );
   const nextAlarm = next ? alarms.find((a) => a.id === next.alarmId) : undefined;
-
-  const recent = history.filter((h) => !h.wasTest).slice(0, 3);
+  const recent = history.filter((h) => !h.wasTest).slice(0, 2);
+  const dateLabel = now.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   const enableSound = async () => {
     const ok = await audioService.unlock();
@@ -35,17 +39,18 @@ export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: (
   };
 
   return (
-    <div className="space-y-5">
-      <header className="pt-6 pb-2 text-center">
+    <div className="space-y-6">
+      <header className="flex flex-col items-center pb-2 pt-10">
         <Clock settings={settings} />
+        <p className="mt-4 text-sm text-muted">{dateLabel}</p>
       </header>
 
       {!settings.audioUnlocked && !audioService.isUnlocked() && (
-        <Card className="border-accent/40">
-          <div className="flex items-start gap-3">
-            <div className="flex-1">
+        <Card className="!p-4">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">{t('home.enableSound')}</div>
-              <p className="mt-1 text-xs text-muted">{t('home.enableSoundBody')}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">{t('home.enableSoundBody')}</p>
             </div>
             <Button size="sm" variant="primary" onClick={enableSound}>
               {t('common.enable')}
@@ -54,21 +59,19 @@ export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: (
         </Card>
       )}
 
-      <Card>
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-          {t('home.nextAlarm')}
-        </div>
-        {nextAlarm && next ? (
-          <div className="mt-2 flex items-end justify-between">
-            <div>
-              <div className="tnum text-3xl font-light">
+      {nextAlarm && next ? (
+        <Card>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted">{t('home.nextAlarm')}</p>
+              <p className="tnum mt-1 text-2xl font-light">
                 {formatAlarmTime(
                   new Date(next.at).getHours(),
                   new Date(next.at).getMinutes(),
                   settings.hour24,
                 )}
-              </div>
-              <div className="mt-1 flex items-center gap-1.5 text-sm">
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 truncate text-sm">
                 <span aria-hidden="true">{categoryIcon(nextAlarm.category)}</span>
                 <span className="font-medium">
                   {nextAlarm.label || t(`category.${nextAlarm.category}` as 'category.other')}
@@ -79,26 +82,23 @@ export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: (
                 {next.kind === 'snooze' && (
                   <span className="text-xs text-muted">· {t('ringing.snooze')}</span>
                 )}
-              </div>
+              </p>
             </div>
-            <div className="text-right text-sm text-muted">
-              {t('home.in', { time: formatCountdown(next.at - now.getTime()) })}
+            <div className="shrink-0 text-right">
+              <p className="tnum text-3xl font-semibold text-accent">
+                {formatCountdown(next.at - now.getTime())}
+              </p>
             </div>
           </div>
-        ) : (
-          <div className="mt-2">
-            <div className="text-lg font-medium">{t('home.noAlarms')}</div>
-            <p className="text-sm text-muted">{t('home.noAlarmsHint')}</p>
-          </div>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <Card className="text-center">
+          <p className="text-base font-medium">{t('home.noAlarms')}</p>
+          <p className="mt-1 text-sm text-muted">{t('home.noAlarmsHint')}</p>
+        </Card>
+      )}
 
-      <div>
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-          {t('home.quickSet')}
-        </div>
-        <QuickSet />
-      </div>
+      <QuickSet />
 
       <Timer />
 
@@ -113,26 +113,25 @@ export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: (
 
       {recent.length > 0 && (
         <div>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            {t('home.recent')}
-          </div>
-          <div className="space-y-2">
+          <p className="mb-2 px-1 text-xs font-medium text-muted">{t('home.recent')}</p>
+          <div className="glass overflow-hidden rounded-card">
             {recent.map((h) => (
-              <Card key={h.id} className="!p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">
-                    {categoryIcon(h.category)} {h.alarmLabel}
-                  </span>
-                  <span className="text-xs text-muted">
-                    {h.snoozeCount > 0 && `${t('history.snoozedTimes', { n: h.snoozeCount })} · `}
-                    {h.outcome === 'completed' || h.outcome === 'dismissed-no-task'
-                      ? t('history.completed')
-                      : h.outcome === 'auto-stopped'
-                        ? t('history.autoStopped')
-                        : t('history.missed')}
-                  </span>
-                </div>
-              </Card>
+              <div
+                key={h.id}
+                className="row flex items-center justify-between px-4 py-3 text-sm"
+              >
+                <span className="truncate font-medium">
+                  <span aria-hidden="true">{categoryIcon(h.category)}</span> {h.alarmLabel}
+                </span>
+                <span className="shrink-0 text-xs text-muted">
+                  {h.snoozeCount > 0 && `${t('history.snoozedTimes', { n: h.snoozeCount })} · `}
+                  {h.outcome === 'completed' || h.outcome === 'dismissed-no-task'
+                    ? t('history.completed')
+                    : h.outcome === 'auto-stopped'
+                      ? t('history.autoStopped')
+                      : t('history.missed')}
+                </span>
+              </div>
             ))}
           </div>
         </div>

@@ -17,7 +17,7 @@ export function History() {
   return (
     <div className="space-y-4">
       <header className="pt-6">
-        <h1 className="text-2xl font-semibold">{t('history.title')}</h1>
+        <h1 className="text-[1.7rem] font-semibold tracking-tight">{t('history.title')}</h1>
       </header>
 
       <Segmented
@@ -95,7 +95,7 @@ function HistoryLog({ entries }: { entries: AlarmHistoryEntry[] }) {
     <div className="space-y-4">
       {groups.map(([key, list]) => (
         <div key={key}>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <div className="mb-2 text-xs font-medium text-muted">
             {dayLabel(Number(key), t)}
           </div>
           <div className="space-y-2">

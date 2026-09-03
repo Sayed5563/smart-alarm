@@ -18,15 +18,15 @@ export function QuickSet() {
   };
 
   return (
-    <div className="grid grid-cols-3 gap-2" role="group" aria-label={t('home.quickSet')}>
+    <div className="grid grid-cols-3 gap-2.5" role="group" aria-label={t('home.quickSet')}>
       {[5, 10, 15].map((m) => (
         <button
           key={m}
           onClick={() => add(m)}
-          className="glass flex h-16 flex-col items-center justify-center rounded-2xl text-sm font-semibold transition hover:bg-surface-2"
+          className="glass flex h-[3.75rem] flex-col items-center justify-center rounded-2xl transition duration-150 hover:bg-surface-2 active:scale-[0.97]"
         >
-          <span className="text-lg">+{m}</span>
-          <span className="text-[11px] font-normal text-muted">min</span>
+          <span className="text-lg font-semibold">+{m}</span>
+          <span className="text-[11px] text-muted">min</span>
         </button>
       ))}
     </div>

@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   hour24: false,
   showSeconds: true,
   theme: 'system',
-  accent: 'blue',
+  accent: 'amber',
   wallpaperId: DEFAULT_WALLPAPER_ID,
   reducedMotion: false,
   notificationsEnabled: false,

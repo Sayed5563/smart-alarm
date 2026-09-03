@@ -53,7 +53,7 @@ export function WallpaperPicker() {
 
       {WALLPAPER_PACKS.map((pack) => (
         <div key={pack}>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <div className="mb-2 text-xs font-medium text-muted">
             {t(`wallpaper.pack.${pack}` as 'wallpaper.pack.minimal')}
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -71,7 +71,7 @@ export function WallpaperPicker() {
       ))}
 
       <div>
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+        <div className="mb-2 text-xs font-medium text-muted">
           {t('wallpaper.custom')}
         </div>
         <div className="grid grid-cols-3 gap-2">

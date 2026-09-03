@@ -230,6 +230,7 @@ export const en = {
   'settings.theme.dark': 'Dark',
   'settings.theme.system': 'System',
   'settings.accent': 'Accent color',
+  'settings.accent.amber': 'Amber',
   'settings.accent.blue': 'Blue',
   'settings.accent.purple': 'Purple',
   'settings.accent.green': 'Green',

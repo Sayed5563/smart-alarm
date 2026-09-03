@@ -167,52 +167,73 @@ export function AlarmRinging() {
   const greeting = getGreeting(now, t);
   const timeStr = formatClock(now, { hour24: settings.hour24, showSeconds: false });
   const mainTime = formatAlarmTime(alarm.hour, alarm.minute, settings.hour24);
+  const isPre = kind === 'pre-alarm';
+
+  const heading = isPre
+    ? t('ringing.preAlarm')
+    : kind === 'test'
+      ? t('ringing.test')
+      : kind === 'timer'
+        ? t('timer.title')
+        : greeting;
 
   return (
     <div
       role="alertdialog"
       aria-modal="true"
       aria-label={t('ringing.stop')}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-between overflow-y-auto bg-[#05070d] px-6 py-[max(2rem,env(safe-area-inset-top))] text-white safe-b"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-between overflow-y-auto bg-[#07070c] px-6 py-[max(2.25rem,env(safe-area-inset-top))] text-white"
+      style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
     >
+      {/* sunrise — the one orchestrated moment */}
+      <div
+        aria-hidden="true"
+        className="sunrise pointer-events-none absolute inset-x-0 bottom-0 h-[85%]"
+        style={{
+          background: isPre
+            ? 'radial-gradient(130% 95% at 50% 100%, #4a79ad 0%, #24406b 40%, transparent 76%)'
+            : 'radial-gradient(130% 95% at 50% 100%, #ffb347 0%, #f0673f 26%, #c4344f 52%, transparent 78%)',
+        }}
+      />
+
       {/* header */}
-      <div className="w-full max-w-md pt-4 text-center">
-        {kind === 'pre-alarm' ? (
-          <>
-            <p className="text-sm font-semibold uppercase tracking-widest text-amber-400">
-              {t('ringing.preAlarm')}
-            </p>
-            <p className="mt-2 text-white/70">{t('ringing.preAlarmBody', { time: mainTime })}</p>
-          </>
-        ) : (
-          <p className="text-sm font-semibold uppercase tracking-widest text-white/60">
-            {kind === 'test'
-              ? t('ringing.test')
-              : kind === 'timer'
-                ? t('timer.title')
-                : greeting}
+      <div className="relative w-full max-w-md pt-3 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-white/95 sm:text-[1.7rem]">
+          {heading}
+        </h1>
+        {isPre ? (
+          <p className="mt-2 text-sm text-white/70">
+            {t('ringing.preAlarmBody', { time: mainTime })}
           </p>
+        ) : (
+          alarm.strongAlert.enabled && (
+            <p className="mt-3 inline-block rounded-pill bg-white/12 px-3 py-1 text-xs font-semibold text-amber-200">
+              {t('ringing.strongActive')}
+            </p>
+          )
         )}
       </div>
 
       {/* clock + label */}
-      <div className="flex flex-col items-center gap-3 text-center">
-        <div className="tnum text-6xl font-light sm:text-7xl">{timeStr.main}</div>
-        <div className="flex items-center gap-2 text-lg">
+      <div className="relative flex flex-col items-center gap-4 text-center">
+        <div className="tnum flex items-baseline justify-center text-[clamp(4.5rem,26vw,8rem)] font-extralight leading-none tracking-tight">
+          {timeStr.main}
+          {timeStr.suffix && (
+            <span className="ml-2.5 text-lg font-semibold tracking-wide text-white/55">
+              {timeStr.suffix}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-lg text-white/85">
           <span aria-hidden="true">{categoryIcon(alarm.category)}</span>
           <span className="font-medium">
             {alarm.label || t(`category.${alarm.category}` as 'category.other')}
           </span>
         </div>
-        {alarm.strongAlert.enabled && kind !== 'pre-alarm' && (
-          <p className="rounded-pill bg-red-500/20 px-3 py-1 text-xs font-semibold text-red-300">
-            {t('ringing.strongActive')}
-          </p>
-        )}
         {needsSoundTap && (
           <button
             onClick={enableSound}
-            className="rounded-pill bg-white/15 px-4 py-2 text-sm font-medium"
+            className="rounded-pill border border-white/25 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur"
           >
             {t('home.enableSound')}
           </button>
@@ -221,10 +242,10 @@ export function AlarmRinging() {
       </div>
 
       {/* controls */}
-      <div className="w-full max-w-md space-y-3 pb-2">
+      <div className="relative w-full max-w-md">
         {phase === 'after-stop' ? (
-          <div className="text-center">
-            <p className="mb-3 text-white/70">
+          <div className="rounded-[1.75rem] bg-black/25 p-5 text-center backdrop-blur">
+            <p className="mb-4 text-white/80">
               {alarm.afterStop.behavior === 'must-finish'
                 ? t('ringing.afterSoundMustFinish')
                 : t('ringing.afterSoundPlaying')}
@@ -234,6 +255,7 @@ export function AlarmRinging() {
                 variant="secondary"
                 size="lg"
                 full
+                className="!border-white/25 !bg-white/10 !text-white"
                 onClick={() => {
                   afterHandle.current?.stop(150);
                   finish(alarm.wakeUpTask.type !== 'none' ? 'completed' : 'dismissed-no-task');
@@ -244,8 +266,8 @@ export function AlarmRinging() {
             )}
           </div>
         ) : showTask ? (
-          <div className="rounded-3xl bg-white/5 p-5">
-            <p className="mb-4 text-center text-sm text-white/70">{t('ringing.taskRequired')}</p>
+          <div className="rounded-[1.75rem] bg-black/30 p-5 backdrop-blur">
+            <p className="mb-4 text-center text-sm text-white/75">{t('ringing.taskRequired')}</p>
             <WakeUpTaskRunner
               config={alarm.wakeUpTask}
               onFail={recordTaskFailure}
@@ -253,40 +275,37 @@ export function AlarmRinging() {
             />
             <button
               onClick={() => setShowTask(false)}
-              className="mt-4 block w-full text-center text-sm text-white/50"
+              className="mt-4 block w-full text-center text-sm text-white/55 hover:text-white/80"
             >
               {t('common.back')}
             </button>
           </div>
-        ) : kind === 'pre-alarm' ? (
-          <Button variant="primary" size="xl" full onClick={onStopPressed}>
+        ) : isPre ? (
+          <button
+            onClick={onStopPressed}
+            className="h-[4.5rem] w-full rounded-[1.75rem] bg-white text-xl font-semibold text-black transition active:scale-[0.97]"
+          >
             {t('ringing.dismissPre')}
-          </Button>
+          </button>
         ) : (
-          <>
-            <Button
-              variant="secondary"
-              size="xl"
-              full
-              className="!bg-white/10 !text-white"
+          <div className="space-y-3">
+            <button
               onClick={() => {
                 cleanupAudioVibration();
                 window.clearTimeout(safetyTimer.current);
                 addSnooze();
               }}
+              className="h-14 w-full rounded-[1.5rem] border border-white/25 text-base font-medium text-white/90 transition hover:bg-white/10 active:scale-[0.98]"
             >
               {t('ringing.snooze')} · {alarm.snoozeMinutes}m
-            </Button>
-            <Button
-              variant="primary"
-              size="xl"
-              full
+            </button>
+            <button
               onClick={onStopPressed}
-              className="!bg-white !text-black"
+              className="h-[4.75rem] w-full rounded-[1.75rem] bg-white text-2xl font-semibold text-black shadow-[0_16px_50px_-12px_rgba(255,255,255,0.5)] transition active:scale-[0.97]"
             >
               {t('ringing.stop')}
-            </Button>
-          </>
+            </button>
+          </div>
         )}
       </div>
     </div>

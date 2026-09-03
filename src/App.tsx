@@ -184,9 +184,10 @@ export default function App() {
     <I18nContext.Provider value={i18n}>
       <div className="wallpaper-layer" />
       <div className="wallpaper-scrim" />
+      <div className="stage-glow" aria-hidden="true" />
 
       <div className="mx-auto flex min-h-full max-w-md flex-col">
-        <main className="flex-1 px-4 pb-4">
+        <main className="flex-1 px-4 pb-24">
           {route === 'home' && <Home onAddAlarm={() => navigate('alarms')} onTest={runTest} />}
           {route === 'alarms' && <Alarms />}
           {route === 'history' && <History />}
@@ -212,8 +213,9 @@ function Toast({ message }: { message: string }) {
   return (
     <div
       role="status"
-      className="toast-in glass fixed inset-x-0 bottom-24 z-40 mx-auto w-fit max-w-[90vw] rounded-pill px-4 py-2 text-sm font-medium shadow-lg"
+      className="toast-in glass fixed inset-x-0 bottom-[5.5rem] z-40 mx-auto flex w-fit max-w-[88vw] items-center gap-2 rounded-pill py-2.5 pl-3 pr-4 text-sm font-medium"
     >
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
       {message}
     </div>
   );

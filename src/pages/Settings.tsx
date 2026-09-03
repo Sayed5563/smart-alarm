@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '@/store/useStore';
 import { useT } from '@/i18n';
 import {
@@ -10,6 +10,7 @@ import {
   Field,
   ConfirmDialog,
   Sheet,
+  cx,
 } from '@/components/ui';
 import { WallpaperPicker } from '@/components/WallpaperPicker';
 import { SoundPicker } from '@/components/SoundPicker';
@@ -84,7 +85,7 @@ export function Settings() {
 
   return (
     <div className="space-y-6 pt-6">
-      <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
+      <h1 className="text-[1.7rem] font-semibold tracking-tight">{t('settings.title')}</h1>
 
       {/* -------------------------------------------------- Appearance */}
       <SettingsSection title={t('settings.section.appearance')}>
@@ -100,15 +101,37 @@ export function Settings() {
           />
         </Field>
         <Field label={t('settings.accent')}>
-          <Segmented
-            value={settings.accent}
-            onChange={(v) => updateSettings({ accent: v })}
-            options={[
-              { value: 'blue', label: t('settings.accent.blue') },
-              { value: 'purple', label: t('settings.accent.purple') },
-              { value: 'green', label: t('settings.accent.green') },
-            ]}
-          />
+          <div className="flex gap-2.5" role="radiogroup" aria-label={t('settings.accent')}>
+            {(
+              [
+                ['amber', '#ff9a5e'],
+                ['blue', '#5c9bff'],
+                ['purple', '#a98bff'],
+                ['green', '#45c98a'],
+              ] as const
+            ).map(([key, dot]) => (
+              <button
+                key={key}
+                role="radio"
+                aria-checked={settings.accent === key}
+                aria-label={t(`settings.accent.${key}` as 'settings.accent.amber')}
+                onClick={() => updateSettings({ accent: key })}
+                className={cx(
+                  'grid h-11 w-11 place-items-center rounded-full transition',
+                  settings.accent === key
+                    ? 'ring-2 ring-offset-2 ring-offset-transparent'
+                    : 'opacity-70 hover:opacity-100',
+                )}
+                style={
+                  settings.accent === key
+                    ? ({ '--tw-ring-color': dot } as CSSProperties)
+                    : undefined
+                }
+              >
+                <span className="h-6 w-6 rounded-full" style={{ background: dot }} />
+              </button>
+            ))}
+          </div>
         </Field>
         <Field label={t('settings.clockType')}>
           <Segmented
@@ -398,8 +421,8 @@ export function Settings() {
 function SettingsSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-      <Card className="divide-y divide-border">{children}</Card>
+      <h2 className="mb-2.5 px-1 text-[13px] font-medium text-muted">{title}</h2>
+      <Card className="divide-y divide-hairline !py-1">{children}</Card>
     </section>
   );
 }

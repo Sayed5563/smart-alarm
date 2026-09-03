@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { Alarm } from '@/types';
 import { useStore } from '@/store/useStore';
 import { useT } from '@/i18n';
@@ -22,64 +23,79 @@ export function AlarmCard({
   const toggleAlarm = useStore((s) => s.toggleAlarm);
   const repeatSummary = useRepeatSummary();
 
+  const [time, meridiem] = formatAlarmTime(alarm.hour, alarm.minute, hour24).split(' ');
+  const armed = alarm.enabled && !dormant;
   const dim = !alarm.enabled || dormant;
+  const features = [
+    alarm.preAlarm.enabled && t('editor.preAlarm'),
+    alarm.wakeUpTask.type !== 'none' &&
+      t(`editor.wakeTask.${alarm.wakeUpTask.type}` as 'editor.wakeTask.math'),
+    alarm.strongAlert.enabled && t('editor.strongAlert'),
+    alarm.afterStop.enabled && t('editor.afterStop'),
+  ].filter(Boolean) as string[];
 
   return (
-    <div className={cx('glass rounded-card p-4 transition', dim && 'opacity-55')}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="tnum text-3xl font-light leading-none">
-              {formatAlarmTime(alarm.hour, alarm.minute, hour24).split(' ')[0]}
-            </span>
-            {!hour24 && (
-              <span className="text-sm text-muted">
-                {formatAlarmTime(alarm.hour, alarm.minute, hour24).split(' ')[1]}
-              </span>
+    <div className="glass overflow-hidden rounded-card">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onEdit}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onEdit())}
+        className="row-tap flex cursor-pointer items-center gap-3 p-4 transition"
+      >
+        <span
+          aria-hidden="true"
+          className={cx(
+            'h-12 w-1 shrink-0 rounded-full transition-colors',
+            armed ? 'bg-accent' : 'bg-transparent',
+          )}
+        />
+
+        <div className={cx('min-w-0 flex-1', dim && 'opacity-45')}>
+          <div className="flex items-baseline gap-1.5">
+            <span className="tnum text-[2.1rem] font-light leading-none tracking-tight">{time}</span>
+            {meridiem && (
+              <span className="text-xs font-semibold text-muted">{meridiem}</span>
             )}
           </div>
-          <div className="mt-1.5 flex items-center gap-1.5 text-sm">
+          <div className="mt-2 flex items-center gap-1.5 text-[13px]">
             <span aria-hidden="true">{categoryIcon(alarm.category)}</span>
             <span className="truncate font-medium">
               {alarm.label || t(`category.${alarm.category}` as 'category.other')}
             </span>
+            <span className="text-muted">·</span>
+            <span className="shrink-0 text-muted">{repeatSummary(alarm)}</span>
           </div>
-          <div className="mt-0.5 text-xs text-muted">{repeatSummary(alarm)}</div>
-          {(alarm.wakeUpTask.type !== 'none' ||
-            alarm.strongAlert.enabled ||
-            alarm.preAlarm.enabled ||
-            alarm.afterStop.enabled) && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {alarm.preAlarm.enabled && <Tag>{t('editor.preAlarm')}</Tag>}
-              {alarm.wakeUpTask.type !== 'none' && (
-                <Tag>{t(`editor.wakeTask.${alarm.wakeUpTask.type}` as 'editor.wakeTask.math')}</Tag>
-              )}
-              {alarm.strongAlert.enabled && <Tag>{t('editor.strongAlert')}</Tag>}
-              {alarm.afterStop.enabled && <Tag>{t('editor.afterStop')}</Tag>}
+          {(features.length > 0 || dormant) && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {dormant && <Tag muted>{t('alarms.dormant')}</Tag>}
+              {features.map((f) => (
+                <Tag key={f}>{f}</Tag>
+              ))}
             </div>
-          )}
-          {dormant && (
-            <div className="mt-2 text-xs font-medium text-muted">{t('alarms.dormant')}</div>
           )}
         </div>
 
-        <Toggle
-          checked={alarm.enabled}
-          onChange={(v) => toggleAlarm(alarm.id, v)}
-          label={`${alarm.label || t('nav.alarms')} ${alarm.enabled ? t('alarms.on') : t('alarms.off')}`}
-        />
+        <span onClick={(e) => e.stopPropagation()}>
+          <Toggle
+            checked={alarm.enabled}
+            onChange={(v) => toggleAlarm(alarm.id, v)}
+            label={`${alarm.label || t('nav.alarms')} — ${alarm.enabled ? t('alarms.on') : t('alarms.off')}`}
+          />
+        </span>
       </div>
 
-      <div className="mt-3 flex gap-2 border-t border-border pt-3">
+      <div className="flex border-t border-hairline text-sm font-medium">
         <button
           onClick={onEdit}
-          className="h-10 flex-1 rounded-xl text-sm font-medium text-fg hover:bg-surface-2"
+          className="flex-1 py-2.5 text-fg transition hover:bg-surface-2"
         >
           {t('alarms.edit')}
         </button>
+        <span className="w-px bg-hairline" aria-hidden="true" />
         <button
           onClick={onDelete}
-          className="h-10 flex-1 rounded-xl text-sm font-medium text-danger hover:bg-surface-2"
+          className="flex-1 py-2.5 text-danger transition hover:bg-surface-2"
         >
           {t('alarms.delete')}
         </button>
@@ -88,9 +104,14 @@ export function AlarmCard({
   );
 }
 
-function Tag({ children }: { children: React.ReactNode }) {
+function Tag({ children, muted }: { children: ReactNode; muted?: boolean }) {
   return (
-    <span className="rounded-pill bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
+    <span
+      className={cx(
+        'rounded-pill px-2 py-0.5 text-[11px] font-medium',
+        muted ? 'bg-surface-2 text-muted' : 'bg-accent-soft text-accent',
+      )}
+    >
       {children}
     </span>
   );

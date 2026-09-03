@@ -97,7 +97,7 @@ export interface Alarm {
 export type ClockType = 'digital' | 'analog';
 export type ClockFont = 'classic' | 'digital' | 'minimal';
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type AccentColor = 'blue' | 'purple' | 'green';
+export type AccentColor = 'amber' | 'blue' | 'purple' | 'green';
 
 export interface DndConfig {
   enabled: boolean;

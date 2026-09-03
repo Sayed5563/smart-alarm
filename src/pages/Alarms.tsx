@@ -32,7 +32,7 @@ export function Alarms() {
   return (
     <div className="space-y-4">
       <header className="flex items-center justify-between pt-6">
-        <h1 className="text-2xl font-semibold">{t('alarms.title')}</h1>
+        <h1 className="text-[1.7rem] font-semibold tracking-tight">{t('alarms.title')}</h1>
         <Button
           variant="primary"
           size="sm"

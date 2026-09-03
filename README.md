@@ -47,8 +47,11 @@ No account. No server. No tracking. Everything lives in your browser.
 - **Wallpaper** — a theme‑aware default, five built‑in packs (Minimal, Gradient,
   Nature, Abstract, Night Sky — all pure CSS, no images), or upload your own
   image (auto‑resized to WebP and stored in IndexedDB). Persists across reloads.
-- **Themes** — Light / Dark / System, plus Blue / Purple / Green accents. The
-  wallpaper's brightness always drives text contrast so content stays legible.
+- **Themes** — Light / Dark / System, plus Amber (default), Blue, Purple and
+  Green accents. The accent is the app's one warm signal — it marks what is
+  *armed, now, or actionable* (an enabled alarm, the countdown, the wake
+  screen). The wallpaper's brightness always drives text contrast so content
+  stays legible.
 - **Quick set** — `+5 / +10 / +15 min` one‑tap alarms.
 - **Timer** — a simple countdown that reuses the alarm ringing screen.
 - **Profiles** — Workdays / Weekend / Vacation style presets that switch *which*

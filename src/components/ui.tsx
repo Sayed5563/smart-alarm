@@ -16,16 +16,17 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg' | 'xl';
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-contrast hover:brightness-110 active:brightness-95',
+  primary:
+    'bg-accent text-accent-contrast shadow-[0_8px_24px_-8px_var(--color-accent-soft)] hover:brightness-105 active:brightness-95',
   secondary: 'glass text-fg hover:bg-surface-2',
   ghost: 'text-fg hover:bg-surface-2',
-  danger: 'bg-danger text-white hover:brightness-110',
+  danger: 'bg-danger text-white hover:brightness-105',
 };
 const SIZES: Record<Size, string> = {
-  sm: 'h-9 px-3 text-sm rounded-[10px]',
+  sm: 'h-9 px-3.5 text-sm rounded-xl',
   md: 'h-11 px-4 text-[15px] rounded-xl',
   lg: 'h-14 px-6 text-base rounded-2xl',
-  xl: 'h-20 px-8 text-2xl rounded-3xl',
+  xl: 'h-[4.5rem] px-8 text-xl font-semibold rounded-[1.75rem]',
 };
 
 export function Button({
@@ -44,8 +45,9 @@ export function Button({
     <button
       {...rest}
       className={cx(
-        'inline-flex items-center justify-center gap-2 font-medium transition select-none',
-        'disabled:opacity-40 disabled:pointer-events-none',
+        'inline-flex items-center justify-center gap-2 font-medium select-none',
+        'transition duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]',
+        'disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100',
         VARIANTS[variant],
         SIZES[size],
         full && 'w-full',
@@ -79,14 +81,15 @@ export function Toggle({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cx(
-        'relative h-7 w-12 shrink-0 rounded-pill transition-colors',
+        'relative h-[1.9rem] w-[3.35rem] shrink-0 rounded-pill transition-colors duration-200',
         checked ? 'bg-accent' : 'bg-surface-2 border border-border',
       )}
     >
       <span
         className={cx(
-          'absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform',
-          checked && 'translate-x-5',
+          'absolute top-[3px] left-[3px] h-[1.4rem] w-[1.4rem] rounded-full bg-white',
+          'shadow-[0_2px_6px_rgba(0,0,0,0.35)] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          checked && 'translate-x-[1.45rem]',
         )}
       />
     </button>
@@ -114,9 +117,9 @@ export function Slider({
   const pct = ((value - min) / (max - min)) * 100;
   return (
     <label className="block">
-      <div className="mb-2 flex items-center justify-between text-sm">
+      <div className="mb-2.5 flex items-center justify-between text-sm">
         <span className="text-muted">{label}</span>
-        <span className="tnum font-medium">{format ? format(value) : value}</span>
+        <span className="tnum font-semibold text-accent">{format ? format(value) : value}</span>
       </div>
       <input
         type="range"
@@ -126,7 +129,13 @@ export function Slider({
         value={value}
         aria-label={label}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-2 appearance-none rounded-pill bg-surface-2 accent-accent cursor-pointer"
+        className={cx(
+          'w-full h-2.5 appearance-none rounded-pill cursor-pointer',
+          '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5',
+          '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white',
+          '[&::-webkit-slider-thumb]:shadow-[0_2px_8px_rgba(0,0,0,0.4)] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-accent',
+          '[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-accent',
+        )}
         style={{
           background: `linear-gradient(to right, var(--color-accent) ${pct}%, var(--color-surface-2) ${pct}%)`,
         }}
@@ -151,7 +160,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="glass inline-flex w-full rounded-xl p-1 gap-1"
+      className="inline-flex w-full gap-1 rounded-xl bg-black/[0.16] p-1"
     >
       {options.map((o) => (
         <button
@@ -160,8 +169,10 @@ export function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
-            'flex-1 h-9 rounded-lg text-sm font-medium transition',
-            value === o.value ? 'bg-accent text-accent-contrast' : 'text-muted hover:text-fg',
+            'flex-1 h-9 rounded-lg px-1 text-sm transition duration-150',
+            value === o.value
+              ? 'bg-fg/[0.12] font-semibold text-fg shadow-[0_1px_3px_rgba(0,0,0,0.25)]'
+              : 'font-medium text-muted hover:text-fg',
           )}
         >
           {o.label}
@@ -229,7 +240,7 @@ export function Sheet({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/55 backdrop-blur-[3px]"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -238,17 +249,18 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy ?? headingId}
-        className="glass relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl"
+        className="sheet-in glass relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] sm:rounded-[1.75rem]"
       >
+        <div className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border sm:hidden" aria-hidden="true" />
         {title && (
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 id={headingId} className="text-lg font-semibold">
+          <div className="flex items-center justify-between px-6 pb-3 pt-4">
+            <h2 id={headingId} className="text-lg font-semibold tracking-tight">
               {title}
             </h2>
             <button
               onClick={onClose}
               aria-label="Close"
-              className="rounded-lg p-1.5 text-muted hover:bg-surface-2"
+              className="-mr-1.5 rounded-lg p-1.5 text-muted transition hover:bg-surface-2 hover:text-fg"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M6 6l12 12M18 6L6 18" />
@@ -256,8 +268,10 @@ export function Sheet({
             </button>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="border-t border-border px-5 py-3 safe-b">{footer}</div>}
+        <div className="flex-1 overflow-y-auto px-6 pb-5 pt-1">{children}</div>
+        {footer && (
+          <div className="border-t border-hairline bg-surface-2/40 px-6 py-3.5 safe-b">{footer}</div>
+        )}
       </div>
     </div>
   );
@@ -304,9 +318,9 @@ export function ConfirmDialog({
   );
 }
 
-/* ------------------------------------------------------------------ Card / Row */
+/* ------------------------------------------------------------------ Card / Field */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx('glass rounded-card p-4', className)}>{children}</div>;
+  return <div className={cx('glass rounded-card p-5', className)}>{children}</div>;
 }
 
 export function Field({
@@ -321,14 +335,12 @@ export function Field({
   htmlFor?: string;
 }) {
   return (
-    <div className="py-2">
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <label htmlFor={htmlFor} className="text-sm font-medium">
-          {label}
-        </label>
-      </div>
+    <div className="py-2.5">
+      <label htmlFor={htmlFor} className="mb-2 block text-sm font-medium">
+        {label}
+      </label>
       {children}
-      {hint && <p className="mt-1.5 text-xs text-muted">{hint}</p>}
+      {hint && <p className="mt-2 text-xs leading-relaxed text-muted">{hint}</p>}
     </div>
   );
 }
@@ -345,10 +357,10 @@ export function RowToggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <div>
+    <div className="flex items-center justify-between gap-4 py-3.5">
+      <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
-        {hint && <div className="mt-0.5 text-xs text-muted">{hint}</div>}
+        {hint && <div className="mt-1 text-xs leading-relaxed text-muted">{hint}</div>}
       </div>
       <Toggle checked={checked} onChange={onChange} label={label} />
     </div>

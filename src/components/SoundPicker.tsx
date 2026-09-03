@@ -58,7 +58,7 @@ export function SoundPicker({
     <div className="space-y-4">
       {SOUND_GROUPS.map((group) => (
         <fieldset key={group.key}>
-          <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <legend className="mb-2 text-xs font-medium text-muted">
             {t(group.labelKey as 'sounds.group.gentle')}
           </legend>
           <div className="space-y-1.5">
@@ -80,7 +80,7 @@ export function SoundPicker({
       ))}
 
       <fieldset>
-        <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+        <legend className="mb-2 text-xs font-medium text-muted">
           {t('sounds.custom')}
         </legend>
         {customSounds.length === 0 && (

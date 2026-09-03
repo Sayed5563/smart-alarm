@@ -29,7 +29,7 @@ export function ProfilesPanel() {
         onClick={() => activateProfile(null)}
         className={cx(
           'flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm',
-          activeProfileId === null ? 'border-accent bg-accent-soft' : 'border-border',
+          activeProfileId === null ? 'border-accent/40 bg-accent-soft' : 'border-border',
         )}
       >
         <span className="font-medium">{t('settings.profileNone')}</span>
@@ -45,7 +45,7 @@ export function ProfilesPanel() {
             key={p.id}
             className={cx(
               'rounded-xl border p-3',
-              active ? 'border-accent bg-accent-soft' : 'border-border',
+              active ? 'border-accent/40 bg-accent-soft' : 'border-border',
             )}
           >
             <div className="flex items-center justify-between">
