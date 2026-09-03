@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+coverage
+.vite
+node_modules/.tmp
+*.tsbuildinfo
+.playwright-mcp
+shots
+smart-alarm

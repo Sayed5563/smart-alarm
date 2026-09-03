@@ -1,0 +1,203 @@
+@import 'tailwindcss';
+
+/* Class-based dark mode (the app controls <html class="dark">). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+
+  --color-fg: var(--c-fg);
+  --color-muted: var(--c-muted);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-border: var(--c-border);
+  --color-accent: var(--c-accent);
+  --color-accent-contrast: var(--c-accent-contrast);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+
+  --radius-card: 1.25rem;
+  --radius-pill: 999px;
+}
+
+/*
+ * The wallpaper's brightness ("scrim"), not the theme mode, drives chrome
+ * colours — a dark wallpaper always gets light text + dark glass cards, and a
+ * light wallpaper the reverse, so content on the backdrop is always legible.
+ * Theme mode still chooses the default wallpaper and the accent.
+ */
+:root,
+:root[data-wallpaper-scrim='light'] {
+  --c-fg: #10131c;
+  --c-muted: #55606f;
+  --c-surface: rgba(255, 255, 255, 0.74);
+  --c-surface-2: rgba(255, 255, 255, 0.5);
+  --c-border: rgba(15, 19, 26, 0.09);
+  --c-accent: #2563eb;
+  --c-accent-contrast: #ffffff;
+  --c-accent-soft: rgba(37, 99, 235, 0.12);
+  --wallpaper: radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #eef1f6 100%);
+  --scrim: transparent;
+  color-scheme: light;
+}
+
+:root[data-wallpaper-scrim='dark'] {
+  --c-fg: #f1f4fa;
+  --c-muted: #a7b0be;
+  --c-surface: rgba(20, 25, 38, 0.58);
+  --c-surface-2: rgba(255, 255, 255, 0.07);
+  --c-border: rgba(255, 255, 255, 0.12);
+  --c-accent: #3b82f6;
+  --c-accent-contrast: #ffffff;
+  --c-accent-soft: rgba(59, 130, 246, 0.18);
+  --scrim: rgba(4, 6, 12, 0.28);
+  color-scheme: dark;
+}
+
+:root[data-accent='purple'] {
+  --c-accent: #7c3aed;
+  --c-accent-soft: rgba(124, 58, 237, 0.14);
+}
+:root[data-wallpaper-scrim='dark'][data-accent='purple'] {
+  --c-accent: #8b5cf6;
+  --c-accent-soft: rgba(139, 92, 246, 0.2);
+}
+:root[data-accent='green'] {
+  --c-accent: #059669;
+  --c-accent-soft: rgba(5, 150, 105, 0.14);
+}
+:root[data-wallpaper-scrim='dark'][data-accent='green'] {
+  --c-accent: #10b981;
+  --c-accent-soft: rgba(16, 185, 129, 0.2);
+}
+
+* {
+  min-width: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-fg);
+  background: #0b0f1a;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The wallpaper lives on a fixed layer behind everything. */
+.wallpaper-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: var(--wallpaper) center / cover no-repeat fixed;
+}
+.wallpaper-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--scrim);
+  backdrop-filter: saturate(1.05);
+}
+
+.glass {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+:root[data-wallpaper-scrim='dark'] .clock-face {
+  text-shadow: 0 1px 24px rgba(0, 0, 0, 0.35);
+}
+
+.clock-classic {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+.clock-digital {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.clock-minimal {
+  font-family: var(--font-sans);
+  font-weight: 200;
+  letter-spacing: 0.04em;
+}
+
+/* Visible, consistent focus ring for keyboard users. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.safe-b {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-t {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+:root[data-reduced-motion='true'] *,
+:root[data-reduced-motion='true'] *::before,
+:root[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.ring-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  animation: pulse-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+}
+.toast-in {
+  animation: toast-in 0.25s ease-out;
+}
