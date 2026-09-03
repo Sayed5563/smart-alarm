@@ -1,9 +1,34 @@
 # Smart Alarm
 
+[![CI](https://github.com/Sayed5563/smart-alarm/actions/workflows/ci.yml/badge.svg)](https://github.com/Sayed5563/smart-alarm/actions/workflows/ci.yml)
+![PWA](https://img.shields.io/badge/PWA-installable-5c9bff)
+![Offline](https://img.shields.io/badge/offline-first-45c98a)
+![React](https://img.shields.io/badge/React-18-61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
+![Vite](https://img.shields.io/badge/Vite-5-646cff)
+![Tests](https://img.shields.io/badge/tests-70%20passing-45c98a)
+![License](https://img.shields.io/badge/license-MIT-ff9a5e)
+![Runtime deps](https://img.shields.io/badge/runtime%20deps-4-ff9a5e)
+
 An offline‑first, installable **Progressive Web App** alarm clock with "smart
 wake‑up" features designed to make it genuinely hard to fall back asleep.
 
 No account. No server. No tracking. Everything lives in your browser.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/home.png" alt="Home — clock, next alarm, quick set, timer"></td>
+    <td width="33%"><img src="docs/screenshots/alarms.png" alt="Alarms list"></td>
+    <td width="33%"><img src="docs/screenshots/ring.png" alt="Wake screen with rising sunrise"></td>
+  </tr>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/editor.png" alt="Alarm editor with the reel time picker"></td>
+    <td width="33%"><img src="docs/screenshots/wake-task.png" alt="Wake-up task — solve a math problem to stop the alarm"></td>
+    <td width="33%"><img src="docs/screenshots/settings.png" alt="Settings"></td>
+  </tr>
+</table>
 
 ---
 
