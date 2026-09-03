@@ -45,6 +45,9 @@
   --wallpaper: linear-gradient(178deg, #ffffff 0%, #eef0f4 100%);
   --scrim: transparent;
   --stage: rgba(224, 122, 54, 0.1);
+  /* Solid ground behind the fixed wallpaper — visible if the page is scrolled
+     past the viewport before the fixed layer catches up (mobile browsers). */
+  --app-bg: #eef0f4;
   color-scheme: light;
 }
 
@@ -60,6 +63,7 @@
   --c-accent-soft: rgba(255, 154, 94, 0.16);
   --scrim: rgba(6, 8, 12, 0.32);
   --stage: rgba(255, 138, 76, 0.16);
+  --app-bg: #06070a;
   color-scheme: dark;
 }
 
@@ -112,7 +116,7 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   color: var(--color-fg);
-  background: #06070a;
+  background: var(--app-bg, #06070a);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -122,7 +126,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: -3;
-  background: var(--wallpaper) center / cover no-repeat fixed;
+  background: var(--wallpaper) center / cover no-repeat;
 }
 .wallpaper-scrim {
   position: fixed;
@@ -240,13 +244,16 @@ body {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 :root[data-reduced-motion='true'] *,
 :root[data-reduced-motion='true'] *::before,
 :root[data-reduced-motion='true'] *::after {
   animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* Sunrise: the one orchestrated moment. A warm bloom rises and brightens over

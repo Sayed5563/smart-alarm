@@ -26,7 +26,7 @@ export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: (
     [alarms, settings, activeIds, now],
   );
   const nextAlarm = next ? alarms.find((a) => a.id === next.alarmId) : undefined;
-  const recent = history.filter((h) => !h.wasTest).slice(0, 2);
+  const recent = history.filter((h) => !h.wasTest && !h.wasTimer).slice(0, 2);
   const dateLabel = now.toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',

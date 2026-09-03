@@ -48,10 +48,11 @@ export function AlarmRinging() {
       cleanupAudioVibration();
       afterHandle.current?.stop(150);
       afterHandle.current = null;
-      if (ringing) void notificationService.clear(`alarm-${ringing.alarmId}`);
+      const r = useStore.getState().ringing;
+      if (r) void notificationService.clear(`alarm-${r.alarmId}`);
       endRing(outcome, taskCompleted);
     },
-    [cleanupAudioVibration, endRing, ringing],
+    [cleanupAudioVibration, endRing],
   );
 
   // ---- start audio + vibration + safety timer when a session begins
@@ -130,6 +131,7 @@ export function AlarmRinging() {
       : 'dismissed-no-task';
 
     cleanupAudioVibration();
+    window.clearTimeout(safetyTimer.current);
 
     if (alarm.afterStop.enabled && kind !== 'pre-alarm') {
       setRingPhase('after-stop');

@@ -43,6 +43,7 @@ export function AlarmEditor({
   const customSounds = useStore((s) => s.customSounds);
   const [draft, setDraft] = useState<Alarm>(alarm);
   const [picking, setPicking] = useState<SoundTarget | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const patch = (p: Partial<Alarm>) => setDraft((d) => ({ ...d, ...p }));
 
@@ -206,7 +207,7 @@ export function AlarmEditor({
           onChange={(v) => patch({ enabled: v })}
         />
 
-        <Collapsible label={t('editor.more')}>
+        <Collapsible label={t('editor.more')} open={moreOpen} onOpenChange={setMoreOpen}>
           <div className="space-y-5">
             {/* snooze */}
             <Field label={t('editor.snooze')}>

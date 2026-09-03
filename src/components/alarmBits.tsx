@@ -82,10 +82,10 @@ export function RepeatPicker({
             aria-pressed={preset === p.key}
             onClick={() => onChange(p.key, [])}
             className={cx(
-              'rounded-pill px-3.5 py-1.5 text-sm font-medium transition',
+              'rounded-pill px-3.5 py-1.5 text-sm transition',
               preset === p.key
-                ? 'bg-accent text-accent-contrast'
-                : 'bg-surface-2 text-muted hover:text-fg',
+                ? 'bg-fg/[0.12] font-semibold text-fg'
+                : 'bg-surface-2 font-medium text-muted hover:text-fg',
             )}
           >
             {p.label}

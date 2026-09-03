@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
 import type {
   Alarm,
   AlarmHistoryEntry,
@@ -80,6 +80,7 @@ export interface StoreState {
   importBundle: (bundle: ExportBundle) => void;
   resetAll: () => Promise<void>;
   toast: (message: string) => void;
+  dismissToast: () => void;
 }
 
 function cloneDefaults(): AppSettings {
@@ -87,7 +88,8 @@ function cloneDefaults(): AppSettings {
 }
 
 export const useStore = create<StoreState>()(
-  persist(
+  subscribeWithSelector(
+    persist(
     (set, get) => ({
       alarms: [],
       settings: cloneDefaults(),
@@ -411,6 +413,7 @@ export const useStore = create<StoreState>()(
       },
 
       toast: (message) => set({ lastToast: { id: Date.now(), message } }),
+      dismissToast: () => set({ lastToast: null }),
     }),
     {
       name: STORAGE_KEY,
@@ -456,5 +459,6 @@ export const useStore = create<StoreState>()(
         };
       },
     },
+    ),
   ),
 );

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SoundRef } from '@/types';
 import { useStore } from '@/store/useStore';
 import { useT } from '@/i18n';
@@ -28,6 +28,9 @@ export function SoundPicker({
   const previewRef = useRef<{ stop: () => void } | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // Stop any preview when the picker unmounts (e.g. the sheet is closed).
+  useEffect(() => () => previewRef.current?.stop(), []);
 
   const preview = async (id: SoundRef) => {
     previewRef.current?.stop();

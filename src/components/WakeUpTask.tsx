@@ -289,9 +289,14 @@ function QrTask({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
+  const aliveRef = useRef(true);
 
   useEffect(() => {
-    return () => stopCamera();
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      stopCamera();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -310,6 +315,11 @@ function QrTask({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
       });
+      // Component unmounted while the permission prompt was open — don't leak.
+      if (!aliveRef.current) {
+        stream.getTracks().forEach((tr) => tr.stop());
+        return;
+      }
       streamRef.current = stream;
       setPhase('scanning');
       const video = videoRef.current!;

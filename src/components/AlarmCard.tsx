@@ -34,15 +34,11 @@ export function AlarmCard({
     alarm.afterStop.enabled && t('editor.afterStop'),
   ].filter(Boolean) as string[];
 
+  const name = alarm.label || t(`category.${alarm.category}` as 'category.other');
+
   return (
     <div className="glass overflow-hidden rounded-card">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onEdit}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onEdit())}
-        className="row-tap flex cursor-pointer items-center gap-3 p-4 transition"
-      >
+      <div className="flex items-center gap-3 p-4">
         <span
           aria-hidden="true"
           className={cx(
@@ -51,18 +47,23 @@ export function AlarmCard({
           )}
         />
 
-        <div className={cx('min-w-0 flex-1', dim && 'opacity-45')}>
+        {/* one real button = the whole info area opens the editor */}
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`${t('alarms.edit')} — ${name}, ${time} ${meridiem}`.trim()}
+          className={cx(
+            'row-tap -m-2 min-w-0 flex-1 rounded-xl p-2 text-left transition',
+            dim && 'opacity-45',
+          )}
+        >
           <div className="flex items-baseline gap-1.5">
             <span className="tnum text-[2.1rem] font-light leading-none tracking-tight">{time}</span>
-            {meridiem && (
-              <span className="text-xs font-semibold text-muted">{meridiem}</span>
-            )}
+            {meridiem && <span className="text-xs font-semibold text-muted">{meridiem}</span>}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-[13px]">
             <span aria-hidden="true">{categoryIcon(alarm.category)}</span>
-            <span className="truncate font-medium">
-              {alarm.label || t(`category.${alarm.category}` as 'category.other')}
-            </span>
+            <span className="truncate font-medium">{name}</span>
             <span className="text-muted">·</span>
             <span className="shrink-0 text-muted">{repeatSummary(alarm)}</span>
           </div>
@@ -74,29 +75,21 @@ export function AlarmCard({
               ))}
             </div>
           )}
-        </div>
+        </button>
 
-        <span onClick={(e) => e.stopPropagation()}>
-          <Toggle
-            checked={alarm.enabled}
-            onChange={(v) => toggleAlarm(alarm.id, v)}
-            label={`${alarm.label || t('nav.alarms')} — ${alarm.enabled ? t('alarms.on') : t('alarms.off')}`}
-          />
-        </span>
+        <Toggle
+          checked={alarm.enabled}
+          onChange={(v) => toggleAlarm(alarm.id, v)}
+          label={`${name} — ${alarm.enabled ? t('alarms.on') : t('alarms.off')}`}
+        />
       </div>
 
       <div className="flex border-t border-hairline text-sm font-medium">
-        <button
-          onClick={onEdit}
-          className="flex-1 py-2.5 text-fg transition hover:bg-surface-2"
-        >
+        <button onClick={onEdit} className="flex-1 py-2.5 text-fg transition hover:bg-surface-2">
           {t('alarms.edit')}
         </button>
         <span className="w-px bg-hairline" aria-hidden="true" />
-        <button
-          onClick={onDelete}
-          className="flex-1 py-2.5 text-danger transition hover:bg-surface-2"
-        >
+        <button onClick={onDelete} className="flex-1 py-2.5 text-danger transition hover:bg-surface-2">
           {t('alarms.delete')}
         </button>
       </div>

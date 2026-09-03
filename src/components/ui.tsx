@@ -201,12 +201,18 @@ export function Sheet({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const headingId = useId();
+  // Keep onClose out of the effect deps so a caller passing an inline function
+  // doesn't re-trigger the focus/scroll-lock setup on every render.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // Yield to a full-screen alarm (role=alertdialog) rendered on top.
+      if (document.querySelector('[role="alertdialog"]')) return;
+      if (e.key === 'Escape') onCloseRef.current();
       if (e.key === 'Tab' && ref.current) {
         const f = ref.current.querySelectorAll<HTMLElement>(
           'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
@@ -224,17 +230,23 @@ export function Sheet({
       }
     };
     document.addEventListener('keydown', onKey);
+    const scrollY = window.scrollY;
     document.body.style.overflow = 'hidden';
     const t = window.setTimeout(() => {
-      ref.current?.querySelector<HTMLElement>('[data-autofocus],button,input,select,textarea')?.focus();
+      // Prefer an explicit target; otherwise focus the dialog itself so we
+      // don't land on a random control (or pop the mobile keyboard).
+      const target =
+        ref.current?.querySelector<HTMLElement>('[data-autofocus]') ?? ref.current;
+      target?.focus({ preventScroll: true });
     }, 30);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
       window.clearTimeout(t);
-      prev?.focus?.();
+      prev?.focus?.({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -250,7 +262,8 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy ?? headingId}
-        className="sheet-in glass relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] sm:rounded-[1.75rem]"
+        tabIndex={-1}
+        className="sheet-in glass relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] outline-none sm:rounded-[1.75rem]"
       >
         <div className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border sm:hidden" aria-hidden="true" />
         {title && (
@@ -393,20 +406,32 @@ export function Collapsible({
   label,
   children,
   defaultOpen = false,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   label: string;
   children: ReactNode;
   defaultOpen?: boolean;
+  /** Pass both to control the open state from the parent (survives remounts). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [uncontrolled, setUncontrolled] = useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolled;
   const bodyId = useId();
+  const toggle = () => {
+    const next = !open;
+    if (!isControlled) setUncontrolled(next);
+    onOpenChange?.(next);
+  };
   return (
     <div className="rounded-2xl border border-hairline">
       <button
         type="button"
         aria-expanded={open}
         aria-controls={bodyId}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         className="flex w-full items-center justify-between px-4 py-3.5 text-sm font-semibold"
       >
         {label}

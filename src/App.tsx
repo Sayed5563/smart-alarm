@@ -99,7 +99,13 @@ export default function App() {
     }, onDue);
     alarmScheduler.start();
 
-    const unsub = useStore.subscribe(() => alarmScheduler.sync());
+    // Only re-sync when something that affects scheduling actually changes —
+    // not on every ringing-phase tick or toast.
+    const unsub = useStore.subscribe(
+      (s) => [s.alarms, s.settings, s.activeProfileId, s.profiles] as const,
+      () => alarmScheduler.sync(),
+      { equalityFn: (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] },
+    );
     return () => {
       unsub();
       alarmScheduler.stop();
@@ -137,17 +143,15 @@ export default function App() {
       timer = window.setTimeout(() => {
         const alarm = alarms.find((a) => a.id === next.alarmId);
         if (alarm) {
-          void notificationService.notify(
-            i18n.t('home.nextAlarm'),
-            {
-              body: `${categoryIcon(alarm.category)} ${
-                alarm.label || i18n.t(`category.${alarm.category}` as 'category.other')
-              }`,
-              tag: `upcoming-${alarm.id}`,
-            },
-          );
+          void notificationService.notify(i18n.t('home.nextAlarm'), {
+            body: `${categoryIcon(alarm.category)} ${
+              alarm.label || i18n.t(`category.${alarm.category}` as 'category.other')
+            }`,
+            tag: `upcoming-${alarm.id}`,
+          });
         }
-        schedule();
+        // Re-evaluate only once this alarm has actually rung — never in a loop.
+        timer = window.setTimeout(schedule, Math.max(1000, next.at - Date.now() + 5000));
       }, fireAt - now);
     };
     schedule();
@@ -197,19 +201,17 @@ export default function App() {
       </div>
 
       {ringing && <AlarmRinging />}
-      {lastToast && <Toast key={lastToast.id} message={lastToast.message} />}
+      {lastToast?.message && <Toast key={lastToast.id} message={lastToast.message} />}
     </I18nContext.Provider>
   );
 }
 
 function Toast({ message }: { message: string }) {
-  const clear = useStore((s) => s.toast);
+  const dismiss = useStore((s) => s.dismissToast);
   useEffect(() => {
-    const t = window.setTimeout(() => clear(''), 2600);
+    const t = window.setTimeout(dismiss, 2600);
     return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  if (!message) return null;
+  }, [dismiss]);
   return (
     <div
       role="status"

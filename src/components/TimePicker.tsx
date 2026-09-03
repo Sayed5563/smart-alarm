@@ -113,6 +113,7 @@ function Reel({
   const ref = useRef<HTMLDivElement>(null);
   const settleTimer = useRef(0);
   const lastEmitted = useRef(index);
+  const programmatic = useRef(false);
 
   // Jump to the incoming index unless we're the one who just changed it
   // (otherwise the parent re-render would fight the user's flick).
@@ -121,8 +122,13 @@ function Reel({
     if (!el) return;
     if (index === lastEmitted.current) return;
     lastEmitted.current = index;
+    programmatic.current = true;
     el.scrollTo({ top: index * ITEM_H });
+    window.clearTimeout(settleTimer.current);
+    settleTimer.current = window.setTimeout(() => (programmatic.current = false), 80);
   }, [index]);
+
+  useEffect(() => () => window.clearTimeout(settleTimer.current), []);
 
   // initial position, once — layout effect so there's no visible jump
   useLayoutEffect(() => {
@@ -130,11 +136,25 @@ function Reel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const settle = () => {
+  // Explicit move (tap / keyboard): animate to the row and emit.
+  const goto = (i: number) => {
     const el = ref.current;
     if (!el) return;
+    const clamped = Math.max(0, Math.min(values.length - 1, i));
+    lastEmitted.current = clamped;
+    programmatic.current = true;
+    el.scrollTo({ top: clamped * ITEM_H, behavior: 'smooth' });
+    window.clearTimeout(settleTimer.current);
+    settleTimer.current = window.setTimeout(() => (programmatic.current = false), 380);
+    if (clamped !== index) onIndex(clamped);
+  };
+
+  // After a flick, CSS scroll-snap has already landed us on a row — just read
+  // it and report. No scrollTo here, so there's no settle/scroll feedback loop.
+  const settle = () => {
+    const el = ref.current;
+    if (!el || programmatic.current) return;
     const i = Math.max(0, Math.min(values.length - 1, Math.round(el.scrollTop / ITEM_H)));
-    el.scrollTo({ top: i * ITEM_H, behavior: 'smooth' });
     if (i !== index) {
       lastEmitted.current = i;
       onIndex(i);
@@ -142,15 +162,9 @@ function Reel({
   };
 
   const onScroll = () => {
+    if (programmatic.current) return;
     window.clearTimeout(settleTimer.current);
-    settleTimer.current = window.setTimeout(settle, 100);
-  };
-
-  const step = (dir: 1 | -1) => {
-    const i = (index + dir + values.length) % values.length;
-    lastEmitted.current = i;
-    onIndex(i);
-    ref.current?.scrollTo({ top: i * ITEM_H, behavior: 'smooth' });
+    settleTimer.current = window.setTimeout(settle, 120);
   };
 
   return (
@@ -160,38 +174,43 @@ function Reel({
       aria-label={label}
       aria-valuenow={values[index]}
       aria-valuetext={format(values[index])}
+      aria-valuemin={values[0]}
+      aria-valuemax={values[values.length - 1]}
       tabIndex={0}
       onScroll={onScroll}
       onKeyDown={(e) => {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
-          step(e.key === 'ArrowDown' ? 1 : -1);
+          const dir = e.key === 'ArrowDown' ? 1 : -1;
+          goto((index + dir + values.length) % values.length);
+        }
+        if (e.key === 'Home') {
+          e.preventDefault();
+          goto(0);
+        }
+        if (e.key === 'End') {
+          e.preventDefault();
+          goto(values.length - 1);
         }
       }}
       className="no-scrollbar h-full w-14 snap-y snap-mandatory overflow-y-scroll overscroll-contain"
     >
-      <div style={{ height: ITEM_H * 2 }} />
+      <div style={{ height: ITEM_H * 2 }} aria-hidden="true" />
       {values.map((v, i) => (
-        <button
+        <div
           key={v}
-          type="button"
-          tabIndex={-1}
-          // click fires on a tap but not on a drag/flick, so it won't fight scrolling
-          onClick={() => {
-            lastEmitted.current = i;
-            onIndex(i);
-            ref.current?.scrollTo({ top: i * ITEM_H, behavior: 'smooth' });
-          }}
+          aria-hidden="true"
+          onClick={() => goto(i)}
           className={cx(
-            'tnum flex w-full snap-center items-center justify-center text-3xl transition-colors',
+            'tnum flex w-full cursor-pointer snap-center select-none items-center justify-center text-3xl transition-colors',
             i === index ? 'font-semibold text-fg' : 'text-muted/45',
           )}
           style={{ height: ITEM_H }}
         >
           {format(v)}
-        </button>
+        </div>
       ))}
-      <div style={{ height: ITEM_H * 2 }} />
+      <div style={{ height: ITEM_H * 2 }} aria-hidden="true" />
     </div>
   );
 }
