@@ -73,6 +73,62 @@ export function nextEvent(
   return best;
 }
 
+/**
+ * Every event to hand to the OS scheduler (native build): for each active alarm,
+ * its next `occurrencesPerAlarm` main occurrences plus their pre-alarms, and any
+ * active snooze. Unlike `nextEventForAlarm` this returns the *set* to register,
+ * because on a closed phone nothing re-runs `sync()` between fires.
+ */
+export function scheduleSet(
+  alarms: Alarm[],
+  settings: AppSettings,
+  activeAlarmIds: string[] | null,
+  now: number,
+  opts: { horizonMs: number; occurrencesPerAlarm: number } = {
+    horizonMs: 14 * DAY_MS,
+    occurrencesPerAlarm: 3,
+  },
+): ScheduledEvent[] {
+  const out: ScheduledEvent[] = [];
+  for (const alarm of alarms) {
+    if (!alarm.enabled) continue;
+    if (activeAlarmIds && !activeAlarmIds.includes(alarm.id)) continue;
+
+    if (alarm.snoozedUntil && alarm.snoozedUntil > now) {
+      out.push({ alarmId: alarm.id, kind: 'snooze', at: alarm.snoozedUntil });
+    }
+
+    let cursor = now;
+    for (let n = 0; n < opts.occurrencesPerAlarm; n++) {
+      let mainAt: number | null = null;
+      for (let i = 0; i < 9; i++) {
+        const occ = nextOccurrence(alarm, new Date(cursor));
+        if (occ == null) break;
+        if (!isAlarmSuppressedByDnd(alarm, new Date(occ), settings.dnd)) {
+          mainAt = occ;
+          break;
+        }
+        if (alarm.repeat === 'once') break;
+        cursor = occ + 1;
+        if (cursor > now + 8 * DAY_MS) break;
+      }
+      if (mainAt == null) break;
+      if (mainAt - now > opts.horizonMs) break;
+
+      out.push({ alarmId: alarm.id, kind: 'alarm', at: mainAt });
+      if (alarm.preAlarm.enabled) {
+        const preAt = mainAt - alarm.preAlarm.minutesBefore * 60_000;
+        if (preAt > now && preAt - now <= opts.horizonMs) {
+          out.push({ alarmId: alarm.id, kind: 'pre-alarm', at: preAt });
+        }
+      }
+      cursor = mainAt + 1;
+      if (alarm.repeat === 'once') break;
+    }
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
 /** All events across all active alarms within `horizonMs` — used by the
  *  "upcoming alarm" notification and the Home screen next-alarm card. */
 export function upcomingEvents(

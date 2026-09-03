@@ -16,6 +16,19 @@ export interface SchedulerState {
 export interface DueEvent extends ScheduledEvent {
   /** The minute-key that was fired, so the store can set lastFiredKey. */
   firedKey: string;
+  /** Native only: the notification action the user chose ('snooze' | 'stop'),
+   *  absent for a plain tap or a web-timer fire. */
+  action?: string;
+}
+
+/** Shared shape so `App` can hold either the web timer scheduler or the native
+ *  AlarmManager-backed one without caring which. */
+export interface SchedulerLike {
+  configure(getState: () => SchedulerState, onDue: (e: DueEvent) => void): void;
+  start(): void;
+  stop(): void;
+  sync(): void;
+  peek(now?: number): ScheduledEvent | null;
 }
 
 /**

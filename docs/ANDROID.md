@@ -1,130 +1,89 @@
-# Turning Smart Alarm into an Android app
+# Android app (Capacitor)
 
-The web app cannot guarantee alarms when the browser is killed. Wrapping it with
-[Capacitor](https://capacitorjs.com/) and delegating **scheduling** and
-**notifications** to native APIs fixes that. The UI, store and all other
-services stay exactly as they are.
+The browser PWA can't fire an alarm when it's fully closed. The Android build
+can: it's the same web app wrapped with [Capacitor](https://capacitorjs.com/),
+with alarm scheduling delegated to Android's `AlarmManager`.
 
-## What already isolates the browser‑specific parts
+## Status
 
-| Service | Browser today | Native replacement |
-|---|---|---|
-| `AlarmScheduler` | one capped `setTimeout` + heartbeat | `@capacitor/local-notifications` schedule, or a small plugin over `AlarmManager` (`setExactAndAllowWhileIdle`) + a foreground service |
-| `NotificationService` | Web Notifications via SW registration | native channels (Alarm importance, bypass DND for "Important") |
-| `AudioService` | Web Audio | keep as‑is inside the WebView, **or** a native looping player + `AudioAttributes.USAGE_ALARM` |
-| `VibrationService` | Vibration API | `@capacitor/haptics` or `Vibrator` with `AudioAttributes.USAGE_ALARM` |
-| `StorageService` | IndexedDB / localStorage | keep as‑is (WebView storage is durable in a packaged app) or `@capacitor/preferences` + Filesystem |
+**Phase A — done.** `nativeAlarmScheduler` (`src/services/nativeAlarmScheduler.ts`)
+registers every upcoming alarm/pre-alarm as an exact
+`@capacitor/local-notifications` schedule (`allowWhileIdle: true`). When an
+alarm fires the OS shows a high-importance notification on the **Alarms**
+channel (plays `res/raw/alarm.wav`, vibrates, Stop / Snooze actions). Tapping it
+opens the app and the normal ring screen takes over. `App` picks this scheduler
+automatically via `Capacitor.isNativePlatform()` — nothing else changes.
 
-No component imports `window.setTimeout` for alarms or `Notification` directly —
-they all go through the services above, so only those files change.
+**Phase B — not built yet.** For a full-screen "wake the device" alarm that
+bypasses Do-Not-Disturb and plays on the alarm audio stream, a small native
+plugin (`AlarmManager.setAlarmClock()` + a foreground `Service` + a
+full-screen-intent `Activity`) is needed. Phase A is a normal heads-up
+notification: loud and it wakes the screen briefly, but it won't take over the
+lock screen.
 
-## Step by step
+## Prerequisites
+
+- Node 18+ (repo pins 22 via `.nvmrc`; anything ≥18 works for the wrapper)
+- **JDK 17** and the **Android SDK** — easiest via Android Studio
+  (Giraffe / Hedgehog or newer)
+
+## Build & run
 
 ```bash
-npm i -D @capacitor/cli
-npm i @capacitor/core @capacitor/local-notifications @capacitor/haptics
-npx cap init "Smart Alarm" com.example.smartalarm --web-dir=dist
-npm run build
-npx cap add android
-npx cap sync
+npm install
+npm run android:open      # build web -> cap sync -> open Android Studio
 ```
 
-### `capacitor.config.ts` (sample)
+In Android Studio: pick a device/emulator (Android 8+), press **Run**. First
+launch asks for the notification permission — allow it. On Android 12+ also
+allow **"Alarms & reminders"** (exact alarms) if prompted.
 
-```ts
-import type { CapacitorConfig } from '@capacitor/cli';
+To build an installable APK: **Build → Build App Bundle(s) / APK(s) → Build
+APK(s)**, or:
 
-const config: CapacitorConfig = {
-  appId: 'com.example.smartalarm',
-  appName: 'Smart Alarm',
-  webDir: 'dist',
-  plugins: {
-    LocalNotifications: {
-      smallIcon: 'ic_stat_alarm',
-      iconColor: '#3b82f6',
-    },
-  },
-};
-
-export default config;
+```bash
+cd android && ./gradlew assembleDebug
+# -> android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Native scheduler adapter (sketch)
+Other useful scripts:
 
-Create `src/services/alarmScheduler.native.ts` implementing the same shape as
-`AlarmScheduler` and select it at build time:
+| script | does |
+|---|---|
+| `npm run android:sync` | rebuild web + copy into `android/` |
+| `npm run android:run` | sync + `cap run android` (build & install on a connected device) |
+| `npm run gen:sound` | regenerate `android/app/src/main/res/raw/alarm.wav` |
 
-```ts
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { nextEvent } from '@/utils/schedule';
+## Testing the "closed app" case
 
-export class NativeAlarmScheduler {
-  configure(getState, onDue) { this.getState = getState; this.onDue = onDue; }
+1. Create an alarm a couple of minutes out, save.
+2. **Swipe the app away** from recents (fully close it).
+3. Lock the phone.
+4. At the set time the alarm notification fires with sound + vibration; tapping
+   it opens the ring screen.
 
-  async sync() {
-    const { alarms, settings, activeAlarmIds } = this.getState();
-    await LocalNotifications.cancel({ notifications: await pending() });
+If it doesn't fire: Settings → Apps → Smart Alarm → check **Notifications** and
+**Alarms & reminders** are allowed, and that battery optimisation isn't
+"Restricted" for the app.
 
-    // Schedule the next occurrence of every active alarm as an exact alarm.
-    const toSchedule = alarms
-      .filter(a => a.enabled && (!activeAlarmIds || activeAlarmIds.includes(a.id)))
-      .map(a => {
-        const ev = nextEvent([a], settings, activeAlarmIds, Date.now());
-        return ev && {
-          id: hash(a.id),
-          title: a.label || 'Alarm',
-          schedule: { at: new Date(ev.at), allowWhileIdle: true },
-          channelId: a.importance === 'important' ? 'alarm_important' : 'alarm',
-          extra: { alarmId: a.id, kind: ev.kind },
-        };
-      })
-      .filter(Boolean);
+## How the web ↔ native seam works
 
-    await LocalNotifications.schedule({ notifications: toSchedule });
-  }
+- `src/utils/schedule.ts` is pure. `scheduleSet()` returns every occurrence to
+  register (next few per alarm + pre-alarms + any snooze). Both schedulers use it.
+- `src/services/scheduler.ts` exports `scheduler` — the native one on device,
+  the web timer one in a browser. Same `configure / start / stop / sync / peek`.
+- `nativeAlarmScheduler.reschedule()` diff-syncs the OS notification set on a
+  400 ms debounce and on every app resume.
+- Notification tap / "Stop" / "Snooze" arrive via
+  `localNotificationActionPerformed` → `onDue({ …, action })` → `App` either
+  opens the ring screen, snoozes, or ignores.
 
-  start() {
-    LocalNotifications.addListener('localNotificationActionPerformed', e => {
-      const { alarmId, kind } = e.notification.extra;
-      this.onDue({ alarmId, kind, at: Date.now(), firedKey: `${alarmId}:${kind}` });
-    });
-    this.sync();
-  }
+## Packaging notes
 
-  stop() { /* remove listeners */ }
-  peek(now = Date.now()) {
-    const s = this.getState();
-    return nextEvent(s.alarms, s.settings, s.activeAlarmIds, now);
-  }
-}
-```
-
-Because `utils/schedule.ts` is pure and already unit‑tested, the "when should
-this alarm ring" logic is shared between the web and native schedulers.
-
-### Android manifest additions
-
-```xml
-<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-<uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-<uses-permission android:name="android.permission.VIBRATE"/>
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-```
-
-Create notification channels with `IMPORTANCE_HIGH`, set the "Important" channel
-to `setBypassDnd(true)`, and re‑schedule on `BOOT_COMPLETED`.
-
-### Camera (QR task)
-
-The web build already gates the camera behind an explicit "Open camera" button.
-For native, add `@capacitor/camera` or `@capacitor-community/barcode-scanner`
-and swap only the `QrTask` component's `start()` implementation.
-
-## What does NOT change
-
-- Every page and component.
-- The Zustand store and all reducers/actions.
-- `utils/*`, `data/*`, `i18n/*`, `hooks/*`.
-- `AudioService` (Web Audio works inside the WebView).
-- The test suite.
+- `appId` `com.sayed.smartalarm`, `appName` "Smart Alarm" — see
+  `capacitor.config.ts`.
+- The `android/` project is committed; the copied web bundle
+  (`android/app/src/main/assets/public`) is git-ignored and regenerated by
+  `cap sync`, so always run a sync after cloning.
+- Manifest adds `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`,
+  `WAKE_LOCK`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`.

@@ -4,7 +4,8 @@ import { I18nContext, LANGUAGES, translate, type I18n } from '@/i18n';
 import { useHashRoute } from '@/hooks/useHashRoute';
 import { useObjectUrl } from '@/hooks/useObjectUrl';
 import {
-  alarmScheduler,
+  scheduler,
+  isNativeApp,
   themeService,
   notificationService,
   storageService,
@@ -86,6 +87,17 @@ export default function App() {
       const s = useStore.getState();
       const alarm = s.alarms.find((a) => a.id === e.alarmId);
       if (!alarm) return;
+
+      // Native: a "Stop" / "Snooze" tapped straight on the notification —
+      // handle it without popping the full ring UI.
+      if (e.action === 'stop') return;
+      if (e.action === 'snooze') {
+        s.updateAlarm(alarm.id, {
+          snoozedUntil: Date.now() + alarm.snoozeMinutes * 60_000,
+        });
+        return;
+      }
+
       if (s.ringing) {
         queueRef.current.push(e);
         return;
@@ -93,22 +105,22 @@ export default function App() {
       beginRing(alarm, e.kind === 'pre-alarm' ? 'pre-alarm' : 'alarm');
     };
 
-    alarmScheduler.configure(() => {
+    scheduler.configure(() => {
       const s = useStore.getState();
       return { alarms: s.alarms, settings: s.settings, activeAlarmIds: s.activeAlarmIds() };
     }, onDue);
-    alarmScheduler.start();
+    scheduler.start();
 
     // Only re-sync when something that affects scheduling actually changes —
     // not on every ringing-phase tick or toast.
     const unsub = useStore.subscribe(
       (s) => [s.alarms, s.settings, s.activeProfileId, s.profiles] as const,
-      () => alarmScheduler.sync(),
+      () => scheduler.sync(),
       { equalityFn: (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] },
     );
     return () => {
       unsub();
-      alarmScheduler.stop();
+      scheduler.stop();
     };
   }, [beginRing]);
 
@@ -123,6 +135,8 @@ export default function App() {
 
   /* ------------------------------------------------------ upcoming-alarm notification */
   useEffect(() => {
+    // Native builds schedule real OS notifications via nativeAlarmScheduler.
+    if (isNativeApp) return;
     if (!settings.notificationsEnabled || notificationService.permission() !== 'granted') return;
     let timer: number;
     const schedule = () => {
