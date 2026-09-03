@@ -7,7 +7,7 @@
 ![React](https://img.shields.io/badge/React-18-61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
 ![Vite](https://img.shields.io/badge/Vite-5-646cff)
-![Tests](https://img.shields.io/badge/tests-70%20passing-45c98a)
+![Tests](https://img.shields.io/badge/tests-74%20passing-45c98a)
 ![License](https://img.shields.io/badge/license-MIT-ff9a5e)
 ![Runtime deps](https://img.shields.io/badge/runtime%20deps-4-ff9a5e)
 
