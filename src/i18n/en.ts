@@ -307,6 +307,14 @@ export const en = {
 
   'about.version': 'Version {v}',
   'about.tagline': 'A local-first alarm clock. No account, no tracking, works offline.',
+  'about.checkUpdates': 'Check for updates',
+  'about.checkingUpdates': 'Checking…',
+  'about.updateCurrent': 'You’re on the latest version',
+  'about.updateFound': 'Update found — reloading…',
+  'about.updateOffline': 'Couldn’t check. Are you online?',
+  'about.updateUnsupported': 'Updates aren’t available in this context',
+  'about.autoUpdateNote':
+    'The app updates itself when you reopen it after a new version ships; this just checks now.',
   'about.limitationsTitle': 'Browser limitations',
   'about.limitations':
     'Smart Alarm is a web app. If your browser or phone fully closes it, background alarms may not fire exactly like a native alarm app. Keep the tab open (or the installed app in the background) for best reliability. For guaranteed background alarms, this project is built to be wrapped with Capacitor and native alarm APIs later.',

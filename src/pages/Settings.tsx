@@ -20,6 +20,7 @@ import {
   notificationService,
   vibrationService,
   storageService,
+  updateService,
 } from '@/services';
 import { isPlausibleExportBundle } from '@/utils/validation';
 import { pad2 } from '@/utils/time';
@@ -385,7 +386,10 @@ export function Settings() {
       {/* -------------------------------------------------- About */}
       <SettingsSection title={t('settings.section.about')}>
         <p className="text-sm">{t('about.tagline')}</p>
-        <p className="mt-1 text-xs text-muted">{t('about.version', { v: APP_VERSION })}</p>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted">{t('about.version', { v: APP_VERSION })}</p>
+          <UpdateButton />
+        </div>
         <About />
       </SettingsSection>
 
@@ -427,10 +431,36 @@ function SettingsSection({ title, children }: { title: string; children: ReactNo
   );
 }
 
+function UpdateButton() {
+  const t = useT();
+  const toast = useStore((s) => s.toast);
+  const [checking, setChecking] = useState(false);
+
+  const run = async () => {
+    setChecking(true);
+    const result = await updateService.check();
+    setChecking(false);
+    const messages: Record<typeof result, string> = {
+      updating: t('about.updateFound'),
+      current: t('about.updateCurrent'),
+      offline: t('about.updateOffline'),
+      unsupported: t('about.updateUnsupported'),
+    };
+    toast(messages[result]);
+  };
+
+  return (
+    <Button variant="secondary" size="sm" onClick={run} disabled={checking}>
+      {checking ? t('about.checkingUpdates') : t('about.checkUpdates')}
+    </Button>
+  );
+}
+
 function About() {
   const t = useT();
   return (
     <div className="mt-3 space-y-3">
+      <p className="text-xs leading-relaxed text-muted">{t('about.autoUpdateNote')}</p>
       <details className="rounded-xl border border-border p-3">
         <summary className="cursor-pointer text-sm font-medium">{t('about.limitationsTitle')}</summary>
         <p className="mt-2 text-xs leading-relaxed text-muted">{t('about.limitations')}</p>
