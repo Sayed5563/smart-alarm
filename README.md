@@ -14,8 +14,13 @@
 An offline‑first, installable **Progressive Web App** alarm clock with "smart
 wake‑up" features designed to make it genuinely hard to fall back asleep.
 
-**Live demo → https://sayed5563.github.io/smart-alarm/** (installable — use
-"Add to Home Screen")
+<p align="center">
+  <a href="https://sayed5563.github.io/smart-alarm/">
+    <img src="docs/screenshots/hero.png" alt="Smart Alarm running live at sayed5563.github.io/smart-alarm" width="320">
+  </a>
+</p>
+
+<p align="center"><b>Live demo → <a href="https://sayed5563.github.io/smart-alarm/">sayed5563.github.io/smart-alarm</a></b> — installable, works offline (use “Add to Home Screen”).</p>
 
 No account. No server. No tracking. Everything lives in your browser.
 
@@ -23,14 +28,14 @@ No account. No server. No tracking. Everything lives in your browser.
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/screenshots/home.png" alt="Home — clock, next alarm, quick set, timer"></td>
-    <td width="33%"><img src="docs/screenshots/alarms.png" alt="Alarms list"></td>
-    <td width="33%"><img src="docs/screenshots/ring.png" alt="Wake screen with rising sunrise"></td>
+    <td width="33%"><img src="docs/screenshots/alarms.png" alt="Alarms list — armed edge, feature tags, repeat summaries"></td>
+    <td width="33%"><img src="docs/screenshots/ring.png" alt="Wake screen — a warm sunrise rises over the time"></td>
+    <td width="33%"><img src="docs/screenshots/wake-task.png" alt="Wake-up task — solve a math problem to stop the alarm"></td>
   </tr>
   <tr>
     <td width="33%"><img src="docs/screenshots/editor.png" alt="Alarm editor with the reel time picker"></td>
-    <td width="33%"><img src="docs/screenshots/wake-task.png" alt="Wake-up task — solve a math problem to stop the alarm"></td>
-    <td width="33%"><img src="docs/screenshots/settings.png" alt="Settings"></td>
+    <td width="33%"><img src="docs/screenshots/settings.png" alt="Settings — theme, accent, clock style, alarm defaults"></td>
+    <td width="33%"><img src="docs/screenshots/home.png" alt="Home — clock, next alarm, quick set, timer"></td>
   </tr>
 </table>
 
