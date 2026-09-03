@@ -14,7 +14,7 @@ class ThemeServiceImpl {
     root.dataset.accent = accent;
     root.dataset.reducedMotion = reducedMotion ? 'true' : 'false';
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0b0f1a' : '#f6f8fc');
+    if (meta) meta.setAttribute('content', dark ? '#06070a' : '#eef0f4');
   }
 
   /** Re-apply when the OS theme flips while mode === 'system'. */

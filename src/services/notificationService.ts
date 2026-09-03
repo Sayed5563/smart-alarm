@@ -38,9 +38,10 @@ class NotificationServiceImpl {
     options: NotificationOptions & { tag?: string } = {},
   ): Promise<void> {
     if (this.permission() !== 'granted') return;
+    const base = import.meta.env.BASE_URL || '/';
     const opts: NotificationOptions = {
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: `${base}icons/icon-192.png`,
+      badge: `${base}icons/icon-192.png`,
       silent: true, // our own AudioService owns the sound
       ...options,
     };

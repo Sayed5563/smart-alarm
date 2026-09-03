@@ -1,6 +1,7 @@
 # Smart Alarm
 
 [![CI](https://github.com/Sayed5563/smart-alarm/actions/workflows/ci.yml/badge.svg)](https://github.com/Sayed5563/smart-alarm/actions/workflows/ci.yml)
+[![Deploy](https://github.com/Sayed5563/smart-alarm/actions/workflows/deploy.yml/badge.svg)](https://github.com/Sayed5563/smart-alarm/actions/workflows/deploy.yml)
 ![PWA](https://img.shields.io/badge/PWA-installable-5c9bff)
 ![Offline](https://img.shields.io/badge/offline-first-45c98a)
 ![React](https://img.shields.io/badge/React-18-61dafb)
@@ -12,6 +13,9 @@
 
 An offline‑first, installable **Progressive Web App** alarm clock with "smart
 wake‑up" features designed to make it genuinely hard to fall back asleep.
+
+**Live demo → https://sayed5563.github.io/smart-alarm/** (installable — use
+"Add to Home Screen")
 
 No account. No server. No tracking. Everything lives in your browser.
 
@@ -152,6 +156,12 @@ npm run preview      # then open the shown URL
 `dist/` is a static site — host it on any static host (GitHub Pages, Netlify,
 Cloudflare Pages, `nginx`…). HTTPS is required for the service worker,
 notifications and camera.
+
+This repo auto-deploys to GitHub Pages on every push to `master`
+(`.github/workflows/deploy.yml`). Because a project page is served from a
+sub-path, that workflow builds with `npm run build -- --base=/smart-alarm/`;
+the app and the PWA manifest work at `/` or any sub-path. Routing is
+hash-based, so deep links need no SPA rewrite rules.
 
 ### Installing the PWA
 

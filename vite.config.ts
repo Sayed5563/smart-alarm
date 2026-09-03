@@ -17,19 +17,18 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        // navigateFallback / scope / start_url are derived from Vite's `base`
+        // by the plugin, so the app works at "/" and at "/smart-alarm/".
       },
       manifest: {
         name: 'Smart Alarm',
         short_name: 'Smart Alarm',
         description: 'Offline-first alarm clock with smart wake-up features.',
-        theme_color: '#0b0f1a',
-        background_color: '#0b0f1a',
+        theme_color: '#06070a',
+        background_color: '#06070a',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
         categories: ['productivity', 'lifestyle', 'utilities'],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
