@@ -46,9 +46,27 @@ export function Alarms() {
       </header>
 
       {sorted.length === 0 ? (
-        <div className="glass rounded-card p-8 text-center">
-          <p className="text-lg font-medium">{t('alarms.empty')}</p>
-          <p className="mt-1 text-sm text-muted">{t('alarms.emptyHint')}</p>
+        <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
+          <div className="grid h-20 w-20 place-items-center rounded-full bg-accent-soft text-accent">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="13" r="8" />
+              <path d="M12 9v4l3 2M5 3 2 6M19 3l3 3" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-base font-medium">{t('alarms.empty')}</p>
+            <p className="mt-1 text-sm text-muted">{t('alarms.emptyHint')}</p>
+          </div>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => {
+              const a = addAlarm();
+              setEditing({ id: a.id, isNew: true });
+            }}
+          >
+            {t('alarms.add')}
+          </Button>
         </div>
       ) : (
         <div className="space-y-2.5">

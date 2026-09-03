@@ -4,6 +4,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
 } from 'react';
 
 /* ------------------------------------------------------------------ classNames */
@@ -364,5 +365,83 @@ export function RowToggle({
       </div>
       <Toggle checked={checked} onChange={onChange} label={label} />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ Chevron */
+export function Chevron({ open, className }: { open?: boolean; className?: string }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={cx('transition-transform duration-200', open && 'rotate-90', className)}
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ Collapsible */
+export function Collapsible({
+  label,
+  children,
+  defaultOpen = false,
+}: {
+  label: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const bodyId = useId();
+  return (
+    <div className="rounded-2xl border border-hairline">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-3.5 text-sm font-semibold"
+      >
+        {label}
+        <Chevron open={open} className="text-muted" />
+      </button>
+      {open && (
+        <div id={bodyId} className="collapse-in border-t border-hairline px-4 py-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ PickerRow */
+export function PickerRow({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="row-tap flex w-full items-center justify-between gap-3 rounded-xl border border-hairline px-4 py-3 text-left transition"
+    >
+      <span className="text-sm font-medium">{label}</span>
+      <span className="flex min-w-0 items-center gap-1.5 text-sm text-muted">
+        <span className="truncate">{value}</span>
+        <Chevron className="shrink-0" />
+      </span>
+    </button>
   );
 }

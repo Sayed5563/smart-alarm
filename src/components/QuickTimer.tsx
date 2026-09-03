@@ -4,7 +4,6 @@ import { useT } from '@/i18n';
 import { makeAlarm } from '@/data/defaults';
 import { formatAlarmTime, pad2 } from '@/utils/time';
 import { audioService } from '@/services';
-import { Button, Card, cx } from './ui';
 
 export function QuickSet() {
   const t = useT();
@@ -89,33 +88,34 @@ export function Timer() {
   const ss = Math.floor((remaining % 60_000) / 1000);
 
   return (
-    <Card>
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{t('timer.title')}</h3>
+    <div>
+      <div className="mb-2 flex items-center justify-between px-1">
+        <span className="text-xs font-medium text-muted">{t('timer.title')}</span>
         {running && (
-          <span className="tnum text-lg font-semibold text-accent">
+          <span className="tnum text-sm font-semibold text-accent">
             {pad2(mm)}:{pad2(ss)}
           </span>
         )}
       </div>
       {running ? (
-        <Button variant="ghost" size="sm" full onClick={() => setTarget(null)}>
+        <button
+          onClick={() => setTarget(null)}
+          className="glass h-12 w-full rounded-2xl text-sm font-medium text-muted transition hover:text-fg"
+        >
           {t('timer.cancel')}
-        </Button>
+        </button>
       ) : (
-        <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-2">
-            {([5, 10, 30] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => start(m)}
-                className={cx('glass h-11 rounded-xl text-sm font-medium transition hover:bg-surface-2')}
-              >
-                {t(`timer.${m}` as 'timer.5')}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="flex gap-2.5">
+          {([5, 10, 30] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => start(m)}
+              className="glass h-12 flex-1 rounded-2xl text-sm font-semibold transition duration-150 hover:bg-surface-2 active:scale-[0.97]"
+            >
+              {t(`timer.${m}` as 'timer.5')}
+            </button>
+          ))}
+          <label className="glass flex h-12 items-center gap-1 rounded-2xl px-2.5">
             <input
               type="number"
               min={1}
@@ -123,14 +123,20 @@ export function Timer() {
               value={customMin}
               onChange={(e) => setCustomMin(Math.max(1, Math.min(180, +e.target.value || 1)))}
               aria-label={t('timer.custom')}
-              className="tnum w-20 rounded-xl border border-border bg-surface-2 px-3 py-2 text-center"
+              className="tnum w-9 bg-transparent text-center text-sm font-semibold outline-none"
             />
-            <Button variant="secondary" size="sm" onClick={() => start(customMin)}>
-              {t('timer.start')}
-            </Button>
-          </div>
+            <button
+              onClick={() => start(customMin)}
+              aria-label={t('timer.start')}
+              className="grid h-7 w-7 place-items-center rounded-full bg-accent text-accent-contrast"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </button>
+          </label>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

@@ -174,6 +174,26 @@ body {
   font-feature-settings: 'tnum' 1;
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Time-picker reels: a mask so numbers fade at the top/bottom edges. */
+.reel-mask {
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    #000 26%,
+    #000 74%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(180deg, transparent 0%, #000 26%, #000 74%, transparent 100%);
+}
+
 /* The clock is the type moment — character comes from weight + tracking + size. */
 .clock-face {
   line-height: 0.92;
@@ -274,4 +294,14 @@ body {
 }
 .sheet-in {
   animation: sheet-in 0.22s var(--ease-out-soft);
+}
+
+@keyframes collapse-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+.collapse-in {
+  animation: collapse-in 0.18s var(--ease-out-soft);
 }

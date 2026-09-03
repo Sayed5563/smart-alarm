@@ -1,17 +1,30 @@
-import { useState, type ReactNode } from 'react';
-import type { Alarm, FadeInDuration } from '@/types';
+import { useState } from 'react';
+import type { Alarm, FadeInDuration, SoundRef } from '@/types';
 import { useStore } from '@/store/useStore';
 import { useT, type TranslationKey } from '@/i18n';
 import { CATEGORIES } from '@/data/categories';
+import { getBuiltinSound } from '@/data/sounds';
 import { MAX_ALERT_DURATION_MINUTES } from '@/data/defaults';
-import { pad2, clamp } from '@/utils/time';
+import { clamp } from '@/utils/time';
 import { vibrationService } from '@/services';
-import { Sheet, Button, Segmented, Slider, RowToggle, Field, cx } from './ui';
-import { DayPicker } from './alarmBits';
+import {
+  Sheet,
+  Button,
+  Segmented,
+  Slider,
+  RowToggle,
+  Field,
+  Collapsible,
+  PickerRow,
+  cx,
+} from './ui';
+import { RepeatPicker } from './alarmBits';
 import { SoundPicker } from './SoundPicker';
+import { TimePicker } from './TimePicker';
 
 const FADE_OPTIONS: FadeInDuration[] = [0, 10, 30, 60, 300];
-const SNOOZE_OPTIONS = [5, 10, 15, 20];
+
+type SoundTarget = 'main' | 'pre' | 'after';
 
 export function AlarmEditor({
   alarm,
@@ -25,9 +38,18 @@ export function AlarmEditor({
   const t = useT();
   const updateAlarm = useStore((s) => s.updateAlarm);
   const deleteAlarm = useStore((s) => s.deleteAlarm);
+  const beginRing = useStore((s) => s.beginRing);
+  const hour24 = useStore((s) => s.settings.hour24);
+  const customSounds = useStore((s) => s.customSounds);
   const [draft, setDraft] = useState<Alarm>(alarm);
+  const [picking, setPicking] = useState<SoundTarget | null>(null);
 
   const patch = (p: Partial<Alarm>) => setDraft((d) => ({ ...d, ...p }));
+
+  const soundName = (id: SoundRef) =>
+    id.startsWith('custom:')
+      ? (customSounds.find((c) => `custom:${c.id}` === id)?.name ?? t('sounds.custom'))
+      : (getBuiltinSound(id)?.name ?? id);
 
   const save = () => {
     updateAlarm(draft.id, {
@@ -45,6 +67,49 @@ export function AlarmEditor({
     onClose();
   };
 
+  const remove = () => {
+    deleteAlarm(draft.id);
+    onClose();
+  };
+
+  // ---- sound sub-screen -----------------------------------------------------
+  if (picking) {
+    const current =
+      picking === 'main'
+        ? draft.soundId
+        : picking === 'pre'
+          ? draft.preAlarm.soundId
+          : draft.afterStop.soundId;
+    const vol =
+      picking === 'main'
+        ? draft.volume
+        : picking === 'pre'
+          ? draft.preAlarm.volume
+          : draft.afterStop.volume;
+    const setSound = (soundId: SoundRef) => {
+      if (picking === 'main') patch({ soundId });
+      else if (picking === 'pre') patch({ preAlarm: { ...draft.preAlarm, soundId } });
+      else patch({ afterStop: { ...draft.afterStop, soundId } });
+    };
+    return (
+      <Sheet
+        open
+        onClose={() => setPicking(null)}
+        title={t('sounds.title')}
+        footer={
+          <Button variant="primary" full onClick={() => setPicking(null)} data-autofocus>
+            {t('common.done')}
+          </Button>
+        }
+      >
+        <SoundPicker value={current} volume={vol} onChange={setSound} />
+      </Sheet>
+    );
+  }
+
+  const snoozeOptions = [...new Set([5, 10, 15, 20, draft.snoozeMinutes])].sort((a, b) => a - b);
+  const vibrationBad = !vibrationService.isSupported();
+
   return (
     <Sheet
       open
@@ -55,158 +120,107 @@ export function AlarmEditor({
           <Button variant="ghost" full onClick={cancel}>
             {t('editor.cancel')}
           </Button>
-          <Button variant="primary" full onClick={save} data-autofocus>
+          <Button variant="primary" full onClick={save}>
             {t('editor.save')}
           </Button>
         </div>
       }
     >
-      <div className="space-y-5">
-        {/* -------------------------------------------------- Basic */}
-        <section className="space-y-3">
-          <Field label={t('editor.time')} htmlFor="alarm-time">
-            <input
-              id="alarm-time"
-              type="time"
-              value={`${pad2(draft.hour)}:${pad2(draft.minute)}`}
-              onChange={(e) => {
-                const [h, m] = e.target.value.split(':').map(Number);
-                if (!Number.isNaN(h) && !Number.isNaN(m)) patch({ hour: h, minute: m });
-              }}
-              className="tnum w-full rounded-xl border border-border bg-surface-2 px-4 py-3 text-3xl"
-            />
-          </Field>
+      <div className="space-y-6">
+        <TimePicker
+          hour={draft.hour}
+          minute={draft.minute}
+          hour24={hour24}
+          onChange={(h, m) => patch({ hour: h, minute: m })}
+        />
 
-          <Field label={t('editor.label')} htmlFor="alarm-label">
-            <input
-              id="alarm-label"
-              type="text"
-              maxLength={80}
-              value={draft.label}
-              placeholder={t('editor.labelPlaceholder')}
-              onChange={(e) => patch({ label: e.target.value })}
-              className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3"
-            />
-          </Field>
-
-          <Field label={t('editor.category')}>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  aria-pressed={draft.category === c.key}
-                  onClick={() => patch({ category: c.key })}
-                  className={cx(
-                    'flex items-center gap-1.5 rounded-pill px-3 py-2 text-sm font-medium transition',
-                    draft.category === c.key ? 'bg-accent text-accent-contrast' : 'glass text-muted',
-                  )}
-                >
-                  <span aria-hidden="true">{c.icon}</span>
-                  {t(c.labelKey as TranslationKey)}
-                </button>
-              ))}
-            </div>
-          </Field>
-
-          <RowToggle
-            label={t('editor.enabled')}
-            checked={draft.enabled}
-            onChange={(v) => patch({ enabled: v })}
+        <Field label={t('editor.section.repeat')}>
+          <RepeatPicker
+            repeat={draft.repeat}
+            customDays={draft.customDays}
+            onChange={(repeat, customDays) => patch({ repeat, customDays })}
           />
-        </section>
+        </Field>
 
-        {/* -------------------------------------------------- Repeat */}
-        <Section title={t('editor.section.repeat')}>
-          <Segmented
-            value={draft.repeat}
-            onChange={(v) => patch({ repeat: v })}
-            label={t('editor.section.repeat')}
-            options={[
-              { value: 'once', label: t('repeat.once') },
-              { value: 'daily', label: t('repeat.daily') },
-              { value: 'weekdays', label: t('repeat.weekdays') },
-              { value: 'weekends', label: t('repeat.weekends') },
-              { value: 'custom', label: t('repeat.custom') },
-            ]}
+        <Field label={t('editor.label')} htmlFor="alarm-label">
+          <input
+            id="alarm-label"
+            type="text"
+            maxLength={80}
+            value={draft.label}
+            placeholder={t('editor.labelPlaceholder')}
+            onChange={(e) => patch({ label: e.target.value })}
+            className="w-full rounded-xl border border-hairline bg-surface-2 px-4 py-3 outline-none focus:border-accent"
           />
-          {draft.repeat === 'custom' && (
-            <div className="mt-3">
-              <DayPicker value={draft.customDays} onChange={(customDays) => patch({ customDays })} />
-            </div>
-          )}
-        </Section>
+        </Field>
 
-        {/* -------------------------------------------------- Sound & volume */}
-        <Section title={t('editor.section.sound')} defaultOpen>
-          <div className="space-y-4">
-            <Slider
-              label={t('editor.volume')}
-              value={Math.round(draft.volume * 100)}
-              onChange={(v) => patch({ volume: v / 100 })}
-              format={(v) => `${v}%`}
+        <Field label={t('editor.category')}>
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                aria-pressed={draft.category === c.key}
+                onClick={() => patch({ category: c.key })}
+                className={cx(
+                  'flex shrink-0 items-center gap-1.5 rounded-pill px-3.5 py-2 text-sm font-medium transition',
+                  draft.category === c.key
+                    ? 'bg-accent text-accent-contrast'
+                    : 'bg-surface-2 text-muted hover:text-fg',
+                )}
+              >
+                <span aria-hidden="true">{c.icon}</span>
+                {t(c.labelKey as TranslationKey)}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <div className="space-y-4">
+          <PickerRow
+            label={t('editor.sound')}
+            value={soundName(draft.soundId)}
+            onClick={() => setPicking('main')}
+          />
+          <Slider
+            label={t('editor.volume')}
+            value={Math.round(draft.volume * 100)}
+            onChange={(v) => patch({ volume: v / 100 })}
+            format={(v) => `${v}%`}
+          />
+          <Field label={t('editor.fadeIn')} hint={t('editor.fadeInHint')}>
+            <Segmented
+              value={String(draft.fadeInSeconds)}
+              onChange={(v) => patch({ fadeInSeconds: Number(v) as FadeInDuration })}
+              options={FADE_OPTIONS.map((f) => ({
+                value: String(f),
+                label: f === 0 ? t('common.off') : f < 60 ? `${f}s` : `${f / 60}m`,
+              }))}
             />
-            <Field label={t('editor.fadeIn')} hint={t('editor.fadeInHint')}>
+          </Field>
+        </div>
+
+        <RowToggle
+          label={t('editor.enabled')}
+          checked={draft.enabled}
+          onChange={(v) => patch({ enabled: v })}
+        />
+
+        <Collapsible label={t('editor.more')}>
+          <div className="space-y-5">
+            {/* snooze */}
+            <Field label={t('editor.snooze')}>
               <Segmented
-                value={String(draft.fadeInSeconds)}
-                onChange={(v) => patch({ fadeInSeconds: Number(v) as FadeInDuration })}
-                options={FADE_OPTIONS.map((f) => ({
-                  value: String(f),
-                  label: f === 0 ? t('common.off') : f < 60 ? `${f}s` : `${f / 60}m`,
-                }))}
+                value={String(draft.snoozeMinutes)}
+                onChange={(v) => patch({ snoozeMinutes: Number(v) })}
+                options={snoozeOptions.map((n) => ({ value: String(n), label: `${n}m` }))}
               />
             </Field>
-            <details className="rounded-xl border border-border p-3">
-              <summary className="cursor-pointer text-sm font-medium">{t('editor.sound')}</summary>
-              <div className="mt-3">
-                <SoundPicker
-                  value={draft.soundId}
-                  volume={draft.volume}
-                  onChange={(soundId) => patch({ soundId })}
-                />
-              </div>
-            </details>
-          </div>
-        </Section>
 
-        {/* -------------------------------------------------- Snooze / vibration */}
-        <Section title={t('editor.snooze')}>
-          <div className="space-y-4">
-            <Field label={t('editor.snooze')}>
-              <div className="flex flex-wrap gap-2">
-                {SNOOZE_OPTIONS.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    aria-pressed={draft.snoozeMinutes === m}
-                    onClick={() => patch({ snoozeMinutes: m })}
-                    className={cx(
-                      'rounded-pill px-4 py-2 text-sm font-medium',
-                      draft.snoozeMinutes === m ? 'bg-accent text-accent-contrast' : 'glass text-muted',
-                    )}
-                  >
-                    {t('editor.minutes', { n: m })}
-                  </button>
-                ))}
-                <label className="flex items-center gap-2 rounded-pill glass px-3 py-1.5 text-sm">
-                  <span className="text-muted">{t('repeat.custom')}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={draft.snoozeMinutes}
-                    onChange={(e) =>
-                      patch({ snoozeMinutes: clamp(Math.trunc(+e.target.value || 1), 1, 60) })
-                    }
-                    className="tnum w-14 rounded-lg border border-border bg-surface-2 px-2 py-1 text-center"
-                  />
-                </label>
-              </div>
-            </Field>
-
+            {/* vibration */}
             <Field
               label={t('editor.vibration')}
-              hint={vibrationService.isSupported() ? undefined : t('editor.vibrationUnsupported')}
+              hint={vibrationBad ? t('editor.vibrationUnsupported') : undefined}
             >
               <Segmented
                 value={draft.vibration}
@@ -219,19 +233,20 @@ export function AlarmEditor({
                 ]}
               />
             </Field>
-          </div>
-        </Section>
 
-        {/* -------------------------------------------------- Smart wake-up */}
-        <Section title={t('editor.section.smart')}>
-          <div className="space-y-4">
+            {/* wake-up task */}
             <Field label={t('editor.wakeTask')} hint={t('editor.wakeTaskHint')}>
               <select
                 value={draft.wakeUpTask.type}
                 onChange={(e) =>
-                  patch({ wakeUpTask: { ...draft.wakeUpTask, type: e.target.value as Alarm['wakeUpTask']['type'] } })
+                  patch({
+                    wakeUpTask: {
+                      ...draft.wakeUpTask,
+                      type: e.target.value as Alarm['wakeUpTask']['type'],
+                    },
+                  })
                 }
-                className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3"
+                className="w-full rounded-xl border border-hairline bg-surface-2 px-4 py-3 outline-none focus:border-accent"
               >
                 <option value="none">{t('editor.wakeTask.none')}</option>
                 <option value="math">{t('editor.wakeTask.math')}</option>
@@ -240,9 +255,8 @@ export function AlarmEditor({
                 <option value="qr">{t('editor.wakeTask.qr')}</option>
               </select>
             </Field>
-
             {draft.wakeUpTask.type !== 'none' && draft.wakeUpTask.type !== 'qr' && (
-              <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label={t('editor.wakeTask.difficulty')}>
                   <Segmented
                     value={draft.wakeUpTask.difficulty}
@@ -261,9 +275,8 @@ export function AlarmEditor({
                     options={[1, 2, 3, 5].map((n) => ({ value: String(n), label: String(n) }))}
                   />
                 </Field>
-              </>
+              </div>
             )}
-
             {draft.wakeUpTask.type === 'qr' && (
               <Field label={t('editor.wakeTask.qr')} hint={t('editor.wakeTask.qrPayloadHint')}>
                 <input
@@ -273,11 +286,12 @@ export function AlarmEditor({
                   onChange={(e) =>
                     patch({ wakeUpTask: { ...draft.wakeUpTask, qrPayload: e.target.value } })
                   }
-                  className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3"
+                  className="w-full rounded-xl border border-hairline bg-surface-2 px-4 py-3 outline-none focus:border-accent"
                 />
               </Field>
             )}
 
+            {/* strong alert */}
             <RowToggle
               label={t('editor.strongAlert')}
               hint={t('editor.strongAlertHint')}
@@ -297,12 +311,8 @@ export function AlarmEditor({
                 />
               </Field>
             )}
-          </div>
-        </Section>
 
-        {/* -------------------------------------------------- Advanced */}
-        <Section title={t('editor.section.advanced')}>
-          <div className="space-y-4">
+            {/* pre-alarm */}
             <RowToggle
               label={t('editor.preAlarm')}
               hint={t('editor.preAlarmHint')}
@@ -310,7 +320,7 @@ export function AlarmEditor({
               onChange={(v) => patch({ preAlarm: { ...draft.preAlarm, enabled: v } })}
             />
             {draft.preAlarm.enabled && (
-              <div className="space-y-3 rounded-xl border border-border p-3">
+              <div className="space-y-3 rounded-xl border border-hairline p-3">
                 <Field label={t('editor.preAlarmMinutes')}>
                   <Segmented
                     value={String(draft.preAlarm.minutesBefore)}
@@ -329,19 +339,15 @@ export function AlarmEditor({
                   onChange={(v) => patch({ preAlarm: { ...draft.preAlarm, volume: v / 100 } })}
                   format={(v) => `${v}%`}
                 />
-                <details className="rounded-xl border border-border p-3">
-                  <summary className="cursor-pointer text-sm font-medium">{t('editor.sound')}</summary>
-                  <div className="mt-3">
-                    <SoundPicker
-                      value={draft.preAlarm.soundId}
-                      volume={draft.preAlarm.volume}
-                      onChange={(soundId) => patch({ preAlarm: { ...draft.preAlarm, soundId } })}
-                    />
-                  </div>
-                </details>
+                <PickerRow
+                  label={t('editor.sound')}
+                  value={soundName(draft.preAlarm.soundId)}
+                  onClick={() => setPicking('pre')}
+                />
               </div>
             )}
 
+            {/* after-stop */}
             <RowToggle
               label={t('editor.afterStop')}
               hint={t('editor.afterStopHint')}
@@ -349,7 +355,7 @@ export function AlarmEditor({
               onChange={(v) => patch({ afterStop: { ...draft.afterStop, enabled: v } })}
             />
             {draft.afterStop.enabled && (
-              <div className="space-y-3 rounded-xl border border-border p-3">
+              <div className="space-y-3 rounded-xl border border-hairline p-3">
                 <Field label={t('editor.afterStop.behavior')}>
                   <Segmented
                     value={draft.afterStop.behavior}
@@ -366,19 +372,15 @@ export function AlarmEditor({
                   onChange={(v) => patch({ afterStop: { ...draft.afterStop, volume: v / 100 } })}
                   format={(v) => `${v}%`}
                 />
-                <details className="rounded-xl border border-border p-3">
-                  <summary className="cursor-pointer text-sm font-medium">{t('editor.sound')}</summary>
-                  <div className="mt-3">
-                    <SoundPicker
-                      value={draft.afterStop.soundId}
-                      volume={draft.afterStop.volume}
-                      onChange={(soundId) => patch({ afterStop: { ...draft.afterStop, soundId } })}
-                    />
-                  </div>
-                </details>
+                <PickerRow
+                  label={t('editor.sound')}
+                  value={soundName(draft.afterStop.soundId)}
+                  onClick={() => setPicking('after')}
+                />
               </div>
             )}
 
+            {/* importance / DND */}
             <Field label={t('editor.importance')}>
               <Segmented
                 value={draft.importance}
@@ -395,25 +397,23 @@ export function AlarmEditor({
               onChange={(v) => patch({ dndOverride: v })}
             />
           </div>
-        </Section>
+        </Collapsible>
+
+        <div className="flex flex-col items-center gap-1 pt-1">
+          <Button variant="secondary" size="sm" onClick={() => beginRing({ ...draft }, 'test')}>
+            {t('editor.test')}
+          </Button>
+          {!isNew && (
+            <button
+              type="button"
+              onClick={remove}
+              className="px-3 py-2 text-sm font-medium text-danger hover:underline"
+            >
+              {t('editor.deleteAlarm')}
+            </button>
+          )}
+        </div>
       </div>
     </Sheet>
-  );
-}
-
-function Section({
-  title,
-  children,
-  defaultOpen = false,
-}: {
-  title: string;
-  children: ReactNode;
-  defaultOpen?: boolean;
-}) {
-  return (
-    <details open={defaultOpen} className="rounded-xl border border-border">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">{title}</summary>
-      <div className="border-t border-border px-4 py-4">{children}</div>
-    </details>
   );
 }

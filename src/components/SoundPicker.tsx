@@ -166,19 +166,19 @@ function SoundRow({
   return (
     <div
       className={cx(
-        'flex items-center gap-2 rounded-xl border px-3 py-2 transition',
-        selected ? 'border-accent bg-accent-soft' : 'border-border',
+        'flex items-center gap-2 rounded-xl border px-3 py-2.5 transition',
+        selected ? 'border-accent/45 bg-accent-soft' : 'border-hairline',
       )}
     >
       <button
         onClick={onSelect}
-        className="flex flex-1 items-center gap-2 text-left text-sm font-medium"
+        className="flex flex-1 items-center gap-2.5 text-left text-sm font-medium"
         aria-pressed={selected}
       >
         <span
           className={cx(
-            'grid h-4 w-4 place-items-center rounded-full border',
-            selected ? 'border-accent' : 'border-muted',
+            'grid h-4 w-4 shrink-0 place-items-center rounded-full border',
+            selected ? 'border-accent' : 'border-muted/60',
           )}
         >
           {selected && <span className="h-2 w-2 rounded-full bg-accent" />}
@@ -188,7 +188,10 @@ function SoundRow({
       <button
         onClick={onPreview}
         aria-label={previewing ? stopLabel : `${previewLabel}: ${name}`}
-        className="rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-surface-2"
+        className={cx(
+          'rounded-lg px-2 py-1 text-xs font-medium transition hover:bg-surface-2',
+          previewing ? 'text-accent' : 'text-muted hover:text-fg',
+        )}
       >
         {previewing ? stopLabel : previewLabel}
       </button>
@@ -196,7 +199,7 @@ function SoundRow({
         <button
           onClick={onDelete}
           aria-label={`${deleteLabel}: ${name}`}
-          className="rounded-lg px-2 py-1 text-xs font-medium text-danger hover:bg-surface-2"
+          className="rounded-lg px-2 py-1 text-xs font-medium text-danger/80 hover:bg-surface-2 hover:text-danger"
         >
           {deleteLabel}
         </button>
