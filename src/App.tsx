@@ -91,20 +91,20 @@ export default function App() {
 
       // Native: a "Stop" / "Snooze" tapped on the notification or the native
       // full-screen overlay, not the web ring screen — it never ran `doStop` /
-      // `addSnooze`, so do their job here (clears `ringing`, updates history,
-      // disables a spent 'once' alarm) before getting out of the way.
-      if (e.action === 'stop') {
-        if (s.ringing?.alarmId === alarm.id) s.endRing('dismissed-no-task');
-        void closeNativeAlarmScreen();
-        return;
-      }
-      if (e.action === 'snooze') {
-        if (s.ringing?.alarmId === alarm.id) {
-          s.addSnooze();
+      // `addSnooze`. When the alarm rang purely natively (screen was already
+      // on, so the app was never opened to `beginRing` in the first place —
+      // see nativeAlarmScheduler / AlarmService), there's no ring session or
+      // history entry yet either; synthesize one so history and the 'once'
+      // alarm's spent-marker end up the same as the web-UI path would leave
+      // them.
+      if (e.action === 'stop' || e.action === 'snooze') {
+        if (s.ringing?.alarmId !== alarm.id) {
+          s.beginRing(alarm, e.kind === 'pre-alarm' ? 'pre-alarm' : 'alarm');
+        }
+        if (e.action === 'stop') {
+          s.endRing('dismissed-no-task');
         } else {
-          s.updateAlarm(alarm.id, {
-            snoozedUntil: Date.now() + alarm.snoozeMinutes * 60_000,
-          });
+          s.addSnooze();
         }
         // Mark the occurrence spent so a 'once' alarm isn't re-armed for tomorrow.
         s.updateAlarm(alarm.id, { lastFiredKey: e.firedKey || `${Date.now()}` });
