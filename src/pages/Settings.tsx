@@ -273,6 +273,7 @@ export function Settings() {
         </div>
         {isNativeApp && <ExactAlarmRow />}
         {isNativeApp && <FullScreenIntentRow />}
+        {isNativeApp && <OverlayRow />}
       </SettingsSection>
 
       {/* -------------------------------------------------- Quiet hours */}
@@ -507,6 +508,20 @@ function FullScreenIntentRow() {
       body={t('settings.fsiBody')}
       ok={t('settings.fsiOk')}
       grant={t('settings.fsiGrant')}
+    />
+  );
+}
+
+function OverlayRow() {
+  const t = useT();
+  return (
+    <PermissionRow
+      check={() => AlarmClock.canDrawOverlays()}
+      open={() => AlarmClock.openOverlaySettings()}
+      label={t('settings.overlay')}
+      body={t('settings.overlayBody')}
+      ok={t('settings.overlayOk')}
+      grant={t('settings.overlayGrant')}
     />
   );
 }

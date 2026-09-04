@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-screen fallback shown by AlarmService when the screen is already on
+     (the OS only auto-launches a full-screen intent over a locked keyguard). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#0B0B12"
+    android:padding="32dp"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/overlay_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/overlay_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="64sp"
+        android:layout_marginBottom="72dp" />
+
+    <Button
+        android:id="@+id/overlay_snooze"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginBottom="16dp"
+        android:text="Snooze"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#33FFFFFF" />
+
+    <Button
+        android:id="@+id/overlay_stop"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:text="Stop"
+        android:textAllCaps="false"
+        android:textSize="18sp"
+        android:textColor="#000000"
+        android:backgroundTint="#FFFFFFFF" />
+
+</LinearLayout>

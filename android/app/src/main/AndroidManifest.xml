@@ -77,4 +77,9 @@
 
     <!-- Launch the full-screen alarm over the lock screen (Android 14+ gates this) -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Fallback full-screen alarm when the screen is already on (special access,
+         user-granted via Settings; the OS only auto-launches USE_FULL_SCREEN_INTENT
+         over a locked keyguard) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 </manifest>

@@ -277,6 +277,12 @@ export const en = {
   'settings.fsiGrant': 'Allow full-screen alarm',
   'settings.fsiOk': 'Full-screen alarm is allowed',
 
+  'settings.overlay': 'Show over other apps',
+  'settings.overlayBody':
+    'Without this, an alarm that rings while your phone is already unlocked shows as a notification instead of taking over the screen.',
+  'settings.overlayGrant': 'Allow showing over other apps',
+  'settings.overlayOk': 'Can show over other apps',
+
   'settings.dnd': 'Quiet hours',
   'settings.dndBody':
     'An in-app quiet period. Note: a website cannot control your device’s real Do Not Disturb — this only affects Smart Alarm.',
