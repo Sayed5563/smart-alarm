@@ -101,13 +101,19 @@ public class AlarmService extends Service {
     startSound(pre);
     if (!pre) startVibration();
 
-    // Also push the activity directly — full-screen intents don't always fire.
-    startActivity(activityIntent(intent, "fire"));
-
-    // The OS only auto-launches a full-screen intent over a *locked* keyguard;
-    // with the screen already on it just shows as a notification. Cover that
-    // gap ourselves if we're allowed to draw over other apps.
-    if (pm != null && pm.isInteractive()) showOverlay(title, pre);
+    // The OS only auto-launches a full-screen intent over a *locked* keyguard —
+    // with the screen already on it just shows as a notification. Pick exactly
+    // one way to show the alarm, never both:
+    boolean interactive = pm != null && pm.isInteractive();
+    if (interactive) {
+      // Screen's already on: draw our own overlay. Do NOT also open the app —
+      // the overlay is the whole alarm screen; nothing needs the WebView.
+      showOverlay(title, pre);
+    } else {
+      // Screen off / locked: nudge the activity directly in case the full-screen
+      // intent doesn't fire on its own; it shows over the lock screen.
+      startActivity(activityIntent(intent, "fire"));
+    }
 
     handler.postDelayed(safety, pre ? 3 * 60 * 1000L : SAFETY_CAP_MS);
     return START_STICKY;
