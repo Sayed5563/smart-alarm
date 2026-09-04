@@ -183,8 +183,7 @@ A normal browser / PWA **cannot guarantee native‑style alarms**. Specifically:
   background execution is restricted, **timers stop and the alarm will not fire
   on time**. Keeping the tab open (or the installed app alive in the background)
   is the most reliable setup. **→ For alarms that fire when the app is fully
-  closed, build the Android app (`docs/ANDROID.md`)** — it schedules through
-  Android's `AlarmManager`.
+  closed — a real lock-screen alarm — build the Android app (`docs/ANDROID.md`).**
 - Audio is blocked until you interact with the page. The Home screen has an
   **"Enable alarm sounds"** button that unlocks the Web Audio context. If an
   alarm fires before you've done this, the ringing screen still appears (with
@@ -249,20 +248,25 @@ default sound automatically.
 
 ## Android app
 
-The app is wrapped with **Capacitor** for Android. `Capacitor.isNativePlatform()`
-swaps the web timer scheduler for `nativeAlarmScheduler`, which registers every
-upcoming occurrence as an exact `@capacitor/local-notifications` schedule
-(`allowWhileIdle: true`) — **so alarms fire even when the app is fully closed and
-the phone is idle.** The UI, store, ring screen and every other service are
-unchanged; only the `AlarmScheduler` body differs, behind the shared
+The app is wrapped with **Capacitor** for Android with a small native alarm
+layer, so **an alarm fires even when the app is fully closed and the phone is
+idle** — and rings like a real alarm clock:
+
+- exact `AlarmManager.setAlarmClock()` scheduling (persisted, re-armed on boot)
+- a foreground service plays on the **ALARM audio stream** (bypasses the ringer /
+  DND), vibrates, and shows a **full-screen alarm over the lock screen**
+- the ring screen is the same React UI; Stop / Snooze call back into the plugin
+
+`Capacitor.isNativePlatform()` swaps `nativeAlarmScheduler` in — the store, UI and
+every other service are unchanged, behind the shared
 `configure / start / stop / sync / peek` contract.
 
 ```bash
 npm run android:open   # build web → cap sync → open Android Studio → Run
 ```
 
-Full instructions, the web↔native seam, and what "Phase B" (full-screen /
-DND-bypassing alarm service) still needs: **`docs/ANDROID.md`**.
+Full instructions, the web↔native seam, OEM caveats: **`docs/ANDROID.md`**.
+(iOS and native per-alarm ringtones aren't done yet.)
 
 The services all sit behind small interfaces so the same swap is possible for
 iOS or other native shells:

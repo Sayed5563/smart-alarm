@@ -1,24 +1,22 @@
 import { App } from '@capacitor/app';
-import {
-  LocalNotifications,
-  type ActionPerformed,
-  type LocalNotificationSchema,
-} from '@capacitor/local-notifications';
+import { LocalNotifications, type LocalNotificationSchema } from '@capacitor/local-notifications';
 import { scheduleSet } from '@/utils/schedule';
 import { minuteKey } from '@/utils/time';
+import { AlarmClock, type AlarmFiredEvent } from './nativeAlarm';
 import type { DueEvent, SchedulerLike, SchedulerState } from './alarmScheduler';
 
 /**
- * Native scheduler — hands every upcoming alarm occurrence to Android's
- * `AlarmManager` via `@capacitor/local-notifications` (`allowWhileIdle`), so an
- * alarm fires as an OS notification even when the app is fully closed. When the
- * user taps it the app opens and the shared ring screen takes over.
+ * Native scheduler.
  *
- * Same `configure / start / stop / sync / peek` contract as the web
- * `AlarmScheduler`, so `App` doesn't know which one it's using.
+ * - Main alarms + snoozes → the app-local `AlarmClock` plugin: exact
+ *   `AlarmManager.setAlarmClock()` + a foreground service that plays on the
+ *   ALARM stream, vibrates, and shows a full-screen alarm over the lock screen —
+ *   works with the app fully closed and the device idle.
+ * - Pre-alarms → a gentle `@capacitor/local-notifications` heads-up.
+ *
+ * Same `configure / start / stop / sync / peek` contract as the web scheduler.
  */
-const CHANNEL_ID = 'alarm';
-const ACTION_TYPE = 'ALARM_ACTIONS';
+const PRE_CHANNEL_ID = 'pre-alarm';
 
 function numericId(key: string): number {
   let h = 0;
@@ -32,7 +30,7 @@ class NativeAlarmScheduler implements SchedulerLike {
   private started = false;
   private syncTimer = 0;
   private lastKeys = new Set<string>();
-  private handledActions = new Set<number>();
+  private handled = new Set<string>();
 
   configure(getState: () => SchedulerState, onDue: (e: DueEvent) => void): void {
     this.getState = getState;
@@ -46,50 +44,26 @@ class NativeAlarmScheduler implements SchedulerLike {
     try {
       await LocalNotifications.requestPermissions();
       await LocalNotifications.createChannel({
-        id: CHANNEL_ID,
-        name: 'Alarms',
-        description: 'Alarm and pre-alarm notifications',
-        importance: 5,
+        id: PRE_CHANNEL_ID,
+        name: 'Pre-alarm',
+        description: 'A softer heads-up before the main alarm',
+        importance: 4,
         visibility: 1,
-        sound: 'alarm.wav',
         vibration: true,
-        lights: true,
-      });
-      await LocalNotifications.registerActionTypes({
-        types: [
-          {
-            id: ACTION_TYPE,
-            actions: [
-              { id: 'stop', title: 'Stop', destructive: true },
-              { id: 'snooze', title: 'Snooze' },
-            ],
-          },
-        ],
       });
     } catch {
-      /* permission / channel setup best-effort */
+      /* best effort */
     }
 
-    LocalNotifications.addListener('localNotificationReceived', (n) => {
-      // Fired while the app is in the foreground — surface the ring screen and
-      // clear the OS notification so there aren't two alarms going.
-      this.dispatch(n);
-      void LocalNotifications.removeDeliveredNotifications({
-        notifications: [{ id: n.id } as LocalNotificationSchema],
-      });
-    });
-
-    LocalNotifications.addListener('localNotificationActionPerformed', (e: ActionPerformed) => {
-      if (this.handledActions.has(e.notification.id)) return;
-      this.handledActions.add(e.notification.id);
-      this.dispatch(e.notification, e.actionId);
-    });
+    void AlarmClock.addListener('alarmFired', (e: AlarmFiredEvent) => this.fired(e));
+    LocalNotifications.addListener('localNotificationReceived', (n) => this.fired(fromNotif(n)));
+    LocalNotifications.addListener('localNotificationActionPerformed', (e) =>
+      this.fired(fromNotif(e.notification)),
+    );
 
     App.addListener('resume', () => this.sync());
-    App.addListener('appStateChange', (s) => {
-      if (s.isActive) this.sync();
-    });
 
+    void this.warnIfInexact();
     this.sync();
   }
 
@@ -99,7 +73,6 @@ class NativeAlarmScheduler implements SchedulerLike {
     void App.removeAllListeners();
   }
 
-  /** Debounced — the store fires this on every change. */
   sync(): void {
     window.clearTimeout(this.syncTimer);
     this.syncTimer = window.setTimeout(() => void this.reschedule(), 400);
@@ -109,27 +82,47 @@ class NativeAlarmScheduler implements SchedulerLike {
     if (!this.getState) return null;
     const s = this.getState();
     const [first] = scheduleSet(s.alarms, s.settings, s.activeAlarmIds, now);
-    return first ? { ...first, firedKey: `${first.alarmId}:${first.kind}:${minuteKey(first.at)}` } : null;
+    return first
+      ? { ...first, firedKey: `${first.alarmId}:${first.kind}:${minuteKey(first.at)}` }
+      : null;
+  }
+
+  async requestExactAlarmPermission(): Promise<void> {
+    try {
+      await AlarmClock.openExactAlarmSettings();
+    } catch {
+      /* not supported */
+    }
   }
 
   // ---------------------------------------------------------------- internals
 
-  private dispatch(
-    n: { id: number; extra?: Record<string, unknown> | null },
-    actionId?: string,
-  ): void {
-    const extra = (n.extra ?? {}) as { alarmId?: string; kind?: DueEvent['kind']; at?: number };
-    if (!extra.alarmId || !extra.kind) return;
-    const at = extra.at ?? Date.now();
+  private fired(e: AlarmFiredEvent | null): void {
+    if (!e || !e.alarmId) return;
+    const key = `${e.firedKey}:${e.action ?? 'ring'}`;
+    if (this.handled.has(key)) return;
+    this.handled.add(key);
+    if (this.handled.size > 100) this.handled.clear();
+
     this.onDue?.({
-      alarmId: extra.alarmId,
-      kind: extra.kind,
-      at,
-      firedKey: `${extra.alarmId}:${extra.kind}:${minuteKey(at)}`,
-      // The App handler reads this to decide snooze-vs-open when it came from a
-      // notification action button rather than a plain tap.
-      action: actionId && actionId !== 'tap' ? actionId : undefined,
+      alarmId: e.alarmId,
+      kind: e.kind,
+      at: e.at,
+      firedKey: e.firedKey || `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`,
+      action: e.action,
     });
+  }
+
+  private async warnIfInexact(): Promise<void> {
+    try {
+      const { granted } = await AlarmClock.canScheduleExactAlarms();
+      if (!granted) {
+        // App surfaces a "Allow exact alarms" nudge; here we just note it.
+        (window as unknown as { __saExactAlarm?: boolean }).__saExactAlarm = false;
+      }
+    } catch {
+      /* not native / plugin missing */
+    }
   }
 
   private async reschedule(): Promise<void> {
@@ -137,47 +130,98 @@ class NativeAlarmScheduler implements SchedulerLike {
     const { alarms, settings, activeAlarmIds } = this.getState();
     const events = scheduleSet(alarms, settings, activeAlarmIds, Date.now());
 
-    const want = new Map<number, LocalNotificationSchema>();
-    const keys = new Set<string>();
-    for (const ev of events) {
-      const key = `${ev.alarmId}:${ev.kind}:${minuteKey(ev.at)}`;
-      keys.add(key);
-      const alarm = alarms.find((a) => a.id === ev.alarmId);
-      if (!alarm) continue;
-      const label = alarm.label || 'Alarm';
-      want.set(numericId(key), {
-        id: numericId(key),
-        title: ev.kind === 'pre-alarm' ? `Soon: ${label}` : label,
-        body:
-          ev.kind === 'pre-alarm'
-            ? 'Pre-alarm — your alarm is coming up'
-            : 'Tap to open Smart Alarm',
-        schedule: { at: new Date(ev.at), allowWhileIdle: true },
-        channelId: CHANNEL_ID,
-        actionTypeId: ACTION_TYPE,
-        smallIcon: 'ic_stat_alarm',
-        ongoing: false,
-        autoCancel: true,
-        extra: { alarmId: ev.alarmId, kind: ev.kind, at: ev.at, firedKey: key },
-      });
-    }
-
-    // Only touch the OS if the set actually changed.
+    const keys = new Set(events.map((e) => `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`));
     if (setsEqual(keys, this.lastKeys)) return;
     this.lastKeys = keys;
 
+    const label = (id: string) => alarms.find((a) => a.id === id)?.label || 'Alarm';
+
+    // ---- main alarms + snoozes → the native alarm plugin
+    const main = events.filter((e) => e.kind !== 'pre-alarm');
+    try {
+      await AlarmClock.cancelAll();
+      for (const e of main) {
+        const key = `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`;
+        await AlarmClock.schedule({
+          id: numericId(key),
+          at: e.at,
+          title: label(e.alarmId),
+          kind: e.kind,
+          alarmId: e.alarmId,
+          firedKey: key,
+        });
+      }
+    } catch {
+      // Plugin unavailable — fall back to notification-only for main alarms too.
+      await this.fallbackSchedule(main, label);
+    }
+
+    // ---- pre-alarms → local notification
+    const pre = events.filter((e) => e.kind === 'pre-alarm');
     try {
       const pending = await LocalNotifications.getPending();
-      const ourPending = pending.notifications.filter((n) => !want.has(n.id));
-      if (ourPending.length) {
-        await LocalNotifications.cancel({ notifications: ourPending.map((n) => ({ id: n.id })) });
+      if (pending.notifications.length) {
+        await LocalNotifications.cancel({
+          notifications: pending.notifications.map((n) => ({ id: n.id })),
+        });
       }
-      const toSchedule = [...want.values()];
-      if (toSchedule.length) await LocalNotifications.schedule({ notifications: toSchedule });
+      if (pre.length) {
+        await LocalNotifications.schedule({
+          notifications: pre.map<LocalNotificationSchema>((e) => {
+            const key = `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`;
+            return {
+              id: numericId(key),
+              title: `Soon: ${label(e.alarmId)}`,
+              body: 'Your alarm is coming up',
+              schedule: { at: new Date(e.at), allowWhileIdle: true },
+              channelId: PRE_CHANNEL_ID,
+              smallIcon: 'ic_stat_alarm',
+              extra: { alarmId: e.alarmId, kind: 'pre-alarm', at: e.at, firedKey: key },
+            };
+          }),
+        });
+      }
     } catch {
-      /* scheduling best-effort */
+      /* best effort */
     }
   }
+
+  private async fallbackSchedule(
+    events: { alarmId: string; kind: string; at: number }[],
+    label: (id: string) => string,
+  ): Promise<void> {
+    try {
+      await LocalNotifications.schedule({
+        notifications: events.map<LocalNotificationSchema>((e) => {
+          const key = `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`;
+          return {
+            id: numericId(key),
+            title: label(e.alarmId),
+            body: 'Tap to open Smart Alarm',
+            schedule: { at: new Date(e.at), allowWhileIdle: true },
+            channelId: PRE_CHANNEL_ID,
+            smallIcon: 'ic_stat_alarm',
+            extra: { alarmId: e.alarmId, kind: e.kind, at: e.at, firedKey: key },
+          };
+        }),
+      });
+    } catch {
+      /* best effort */
+    }
+  }
+}
+
+function fromNotif(n: {
+  extra?: Record<string, unknown> | null;
+}): AlarmFiredEvent | null {
+  const x = (n.extra ?? {}) as Partial<AlarmFiredEvent>;
+  if (!x.alarmId || !x.kind) return null;
+  return {
+    alarmId: x.alarmId,
+    kind: x.kind,
+    at: x.at ?? Date.now(),
+    firedKey: x.firedKey ?? '',
+  };
 }
 
 function setsEqual(a: Set<string>, b: Set<string>): boolean {

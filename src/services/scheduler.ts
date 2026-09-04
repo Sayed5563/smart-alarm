@@ -1,6 +1,6 @@
-import { Capacitor } from '@capacitor/core';
 import { alarmScheduler } from './alarmScheduler';
 import { nativeAlarmScheduler } from './nativeAlarmScheduler';
+import { isNativeApp } from './platform';
 import type { SchedulerLike } from './alarmScheduler';
 
 /**
@@ -8,8 +8,6 @@ import type { SchedulerLike } from './alarmScheduler';
  * AlarmManager-backed scheduler (alarms fire when the app is closed); in a
  * browser it's the single-timer web scheduler.
  */
-export const scheduler: SchedulerLike = Capacitor.isNativePlatform()
-  ? nativeAlarmScheduler
-  : alarmScheduler;
+export const scheduler: SchedulerLike = isNativeApp ? nativeAlarmScheduler : alarmScheduler;
 
-export const isNativeApp = Capacitor.isNativePlatform();
+export { isNativeApp };
