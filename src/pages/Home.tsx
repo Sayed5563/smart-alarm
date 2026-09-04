@@ -8,7 +8,7 @@ import { Button, Card } from '@/components/ui';
 import { nextEvent } from '@/utils/schedule';
 import { formatAlarmTime, formatCountdown } from '@/utils/time';
 import { categoryIcon } from '@/data/categories';
-import { audioService } from '@/services';
+import { audioService, isNativeApp } from '@/services';
 
 export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: () => void }) {
   const t = useT();
@@ -45,7 +45,7 @@ export function Home({ onAddAlarm, onTest }: { onAddAlarm: () => void; onTest: (
         <p className="mt-4 text-sm text-muted">{dateLabel}</p>
       </header>
 
-      {!settings.audioUnlocked && !audioService.isUnlocked() && (
+      {!isNativeApp && !settings.audioUnlocked && !audioService.isUnlocked() && (
         <Card className="!p-4">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">

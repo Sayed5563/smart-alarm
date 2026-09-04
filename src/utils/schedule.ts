@@ -28,6 +28,9 @@ export function nextEventForAlarm(
     return { alarmId: alarm.id, kind: 'snooze', at: alarm.snoozedUntil };
   }
 
+  // A 'once' alarm that already rang is spent — no phantom occurrence tomorrow.
+  if (alarm.repeat === 'once' && alarm.lastFiredKey) return null;
+
   // Find the next occurrence that isn't suppressed by quiet hours. For repeating
   // alarms we skip forward day by day; for 'once' a suppressed occurrence is
   // simply dropped.
@@ -97,6 +100,9 @@ export function scheduleSet(
     if (alarm.snoozedUntil && alarm.snoozedUntil > now) {
       out.push({ alarmId: alarm.id, kind: 'snooze', at: alarm.snoozedUntil });
     }
+
+    // A 'once' alarm that already rang is spent — don't re-arm it for tomorrow.
+    if (alarm.repeat === 'once' && alarm.lastFiredKey) continue;
 
     let cursor = now;
     for (let n = 0; n < opts.occurrencesPerAlarm; n++) {

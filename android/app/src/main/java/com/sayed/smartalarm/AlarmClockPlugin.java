@@ -1,5 +1,7 @@
 package com.sayed.smartalarm;
 
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -108,6 +110,35 @@ public class AlarmClockPlugin extends Plugin {
   public void openExactAlarmSettings(PluginCall call) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Intent i = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+          Uri.parse("package:" + getContext().getPackageName()));
+      i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      getContext().startActivity(i);
+    }
+    call.resolve();
+  }
+
+  /**
+   * Android 14+ can withhold USE_FULL_SCREEN_INTENT from side-loaded apps.
+   * Without it the alarm still rings, but the wake screen can't appear over the
+   * lock screen — only a notification does.
+   */
+  @PluginMethod
+  public void canUseFullScreenIntent(PluginCall call) {
+    JSObject ret = new JSObject();
+    boolean ok = true;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      NotificationManager nm =
+          (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+      ok = nm != null && nm.canUseFullScreenIntent();
+    }
+    ret.put("granted", ok);
+    call.resolve(ret);
+  }
+
+  @PluginMethod
+  public void openFullScreenIntentSettings(PluginCall call) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      Intent i = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
           Uri.parse("package:" + getContext().getPackageName()));
       i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       getContext().startActivity(i);
