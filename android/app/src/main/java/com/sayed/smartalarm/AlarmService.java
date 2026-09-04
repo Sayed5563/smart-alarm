@@ -1,5 +1,6 @@
 package com.sayed.smartalarm;
 
+import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -102,17 +103,24 @@ public class AlarmService extends Service {
     if (!pre) startVibration();
 
     // The OS only auto-launches a full-screen intent over a *locked* keyguard —
-    // with the screen already on it just shows as a notification. Pick exactly
-    // one way to show the alarm, never both:
-    boolean interactive = pm != null && pm.isInteractive();
-    if (interactive) {
-      // Screen's already on: draw our own overlay. Do NOT also open the app —
-      // the overlay is the whole alarm screen; nothing needs the WebView.
-      showOverlay(title, pre);
-    } else {
-      // Screen off / locked: nudge the activity directly in case the full-screen
-      // intent doesn't fire on its own; it shows over the lock screen.
+    // with the device unlocked it just shows as a notification. Pick exactly
+    // one way to show the alarm, never both. Keyguard-locked, not screen-on,
+    // is the right question here: some OEM always-on displays (e.g. Samsung's)
+    // keep PowerManager.isInteractive() true while the keyguard is still up,
+    // which used to send those phones down the overlay path and leave the
+    // locked phone with nothing but a notification.
+    KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+    boolean locked = km == null || km.isKeyguardLocked();
+    if (locked) {
+      // Locked (incl. an always-on display over the keyguard): nudge the
+      // activity directly in case the full-screen intent doesn't fire on its
+      // own; it shows over the lock screen.
       startActivity(activityIntent(intent, "fire"));
+    } else {
+      // Genuinely unlocked and in use: draw our own overlay. Do NOT also open
+      // the app — the overlay is the whole alarm screen; nothing needs the
+      // WebView.
+      showOverlay(title, pre);
     }
 
     handler.postDelayed(safety, pre ? 3 * 60 * 1000L : SAFETY_CAP_MS);
