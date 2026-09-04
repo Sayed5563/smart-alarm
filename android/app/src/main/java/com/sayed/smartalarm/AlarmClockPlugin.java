@@ -1,5 +1,6 @@
 package com.sayed.smartalarm;
 
+import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
@@ -96,6 +97,16 @@ public class AlarmClockPlugin extends Plugin {
   @PluginMethod
   public void stopRinging(PluginCall call) {
     AlarmService.stop(getContext());
+    call.resolve();
+  }
+
+  /** After Stop / Snooze: if the app only came up for the alarm, send it back. */
+  @PluginMethod
+  public void closeAlarmScreen(PluginCall call) {
+    final Activity a = getActivity();
+    if (a instanceof MainActivity) {
+      a.runOnUiThread(() -> ((MainActivity) a).dismissAlarmScreen());
+    }
     call.resolve();
   }
 

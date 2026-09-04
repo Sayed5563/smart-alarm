@@ -7,7 +7,7 @@ export type { DueEvent, SchedulerState, SchedulerLike } from './alarmScheduler';
 export { nativeAlarmScheduler } from './nativeAlarmScheduler';
 export { scheduler } from './scheduler';
 export { isNativeApp } from './platform';
-export { AlarmClock, stopNativeAlarm } from './nativeAlarm';
+export { AlarmClock, stopNativeAlarm, closeNativeAlarmScreen } from './nativeAlarm';
 export { notificationService } from './notificationService';
 export type { NotificationService } from './notificationService';
 export { vibrationService } from './vibrationService';

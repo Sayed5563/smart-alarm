@@ -9,6 +9,7 @@ import {
   themeService,
   notificationService,
   storageService,
+  closeNativeAlarmScreen,
   type DueEvent,
 } from '@/services';
 import { upcomingEvents } from '@/utils/schedule';
@@ -89,14 +90,18 @@ export default function App() {
       if (!alarm) return;
 
       // Native: a "Stop" / "Snooze" tapped straight on the notification —
-      // handle it without popping the full ring UI.
-      if (e.action === 'stop') return;
+      // handle it without popping the full ring UI, then get out of the way.
+      if (e.action === 'stop') {
+        void closeNativeAlarmScreen();
+        return;
+      }
       if (e.action === 'snooze') {
         s.updateAlarm(alarm.id, {
           snoozedUntil: Date.now() + alarm.snoozeMinutes * 60_000,
           // Mark the occurrence spent so a 'once' alarm isn't re-armed for tomorrow.
           lastFiredKey: e.firedKey || `${Date.now()}`,
         });
+        void closeNativeAlarmScreen();
         return;
       }
 
