@@ -89,18 +89,25 @@ export default function App() {
       const alarm = s.alarms.find((a) => a.id === e.alarmId);
       if (!alarm) return;
 
-      // Native: a "Stop" / "Snooze" tapped straight on the notification —
-      // handle it without popping the full ring UI, then get out of the way.
+      // Native: a "Stop" / "Snooze" tapped on the notification or the native
+      // full-screen overlay, not the web ring screen — it never ran `doStop` /
+      // `addSnooze`, so do their job here (clears `ringing`, updates history,
+      // disables a spent 'once' alarm) before getting out of the way.
       if (e.action === 'stop') {
+        if (s.ringing?.alarmId === alarm.id) s.endRing('dismissed-no-task');
         void closeNativeAlarmScreen();
         return;
       }
       if (e.action === 'snooze') {
-        s.updateAlarm(alarm.id, {
-          snoozedUntil: Date.now() + alarm.snoozeMinutes * 60_000,
-          // Mark the occurrence spent so a 'once' alarm isn't re-armed for tomorrow.
-          lastFiredKey: e.firedKey || `${Date.now()}`,
-        });
+        if (s.ringing?.alarmId === alarm.id) {
+          s.addSnooze();
+        } else {
+          s.updateAlarm(alarm.id, {
+            snoozedUntil: Date.now() + alarm.snoozeMinutes * 60_000,
+          });
+        }
+        // Mark the occurrence spent so a 'once' alarm isn't re-armed for tomorrow.
+        s.updateAlarm(alarm.id, { lastFiredKey: e.firedKey || `${Date.now()}` });
         void closeNativeAlarmScreen();
         return;
       }

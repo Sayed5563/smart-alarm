@@ -31,6 +31,16 @@ with a small native alarm layer.
   `ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT`). Without it the alarm still rings
   and posts a notification, but the wake screen won't cover the lock screen and
   the display won't turn itself on.
+- **The OS only auto-launches that full-screen intent over a *locked* keyguard.**
+  If the screen is already on when the alarm fires, Android intentionally shows
+  a notification instead (so a random app can't hijack an active session) — this
+  is a platform rule, not something `USE_FULL_SCREEN_INTENT` changes. `AlarmService`
+  covers that gap with its own native overlay window (`res/layout/alarm_overlay.xml`,
+  `TYPE_APPLICATION_OVERLAY`), shown only when `PowerManager.isInteractive()` is true
+  at ring time. Needs **"Display over other apps"** — Settings shows a
+  **"Allow showing over other apps"** button (`canDrawOverlays()` /
+  `ACTION_MANAGE_OVERLAY_PERMISSION`). Its Stop/Snooze re-enter `AlarmService`
+  the same way the notification's actions do.
 
 ## Prerequisites
 

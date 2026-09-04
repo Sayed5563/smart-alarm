@@ -8,16 +8,25 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.graphics.PixelFormat;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.core.app.NotificationCompat;
 
@@ -27,9 +36,12 @@ import androidx.core.app.NotificationCompat;
  *  - vibrates
  *  - posts a full-screen-intent notification that launches MainActivity over
  *    the lock screen
+ *  - if the screen is already on (so the OS won't auto-launch the full-screen
+ *    intent — that only happens over a locked keyguard), draws its own
+ *    full-screen overlay so the alarm isn't just a notification
  *  - auto-stops after a hard safety cap
  * Stopped by MainActivity (via the plugin) when the user hits Stop / Snooze,
- * or by the notification's own actions.
+ * or by the notification's / overlay's own actions.
  */
 public class AlarmService extends Service {
 
@@ -46,6 +58,10 @@ public class AlarmService extends Service {
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final Runnable safety = this::stopEverything;
 
+  private WindowManager windowManager;
+  private View overlayView;
+  private Bundle currentExtras;
+
   /** Set while ringing so the plugin knows there's something to stop. */
   static volatile boolean isRinging = false;
   static volatile String currentAlarmId = null;
@@ -55,7 +71,8 @@ public class AlarmService extends Service {
   public int onStartCommand(Intent intent, int flags, int startId) {
     String action = intent != null ? intent.getAction() : null;
     if (ACTION_STOP.equals(action) || ACTION_SNOOZE.equals(action)) {
-      // The web layer / notification asked us to stop.
+      // The web layer / notification / overlay asked us to stop.
+      removeOverlay();
       handoffToApp(intent, ACTION_SNOOZE.equals(action) ? "snooze" : "stop");
       stopEverything();
       return START_NOT_STICKY;
@@ -70,6 +87,7 @@ public class AlarmService extends Service {
     isRinging = true;
     currentAlarmId = alarmId;
     currentKind = kind;
+    currentExtras = intent != null ? intent.getExtras() : null;
 
     startForegroundWithNotification(title, pre, intent);
 
@@ -85,6 +103,11 @@ public class AlarmService extends Service {
 
     // Also push the activity directly — full-screen intents don't always fire.
     startActivity(activityIntent(intent, "fire"));
+
+    // The OS only auto-launches a full-screen intent over a *locked* keyguard;
+    // with the screen already on it just shows as a notification. Cover that
+    // gap ourselves if we're allowed to draw over other apps.
+    if (pm != null && pm.isInteractive()) showOverlay(title, pre);
 
     handler.postDelayed(safety, pre ? 3 * 60 * 1000L : SAFETY_CAP_MS);
     return START_STICKY;
@@ -124,6 +147,70 @@ public class AlarmService extends Service {
     } else {
       vibrator.vibrate(pattern, 0);
     }
+  }
+
+  // ---------------------------------------------------------------- overlay
+
+  /** True if we're allowed to draw over other apps (Settings → "Show over other apps"). */
+  private boolean canDrawOverlay() {
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this);
+  }
+
+  private void showOverlay(String title, boolean pre) {
+    if (overlayView != null || !canDrawOverlay()) return;
+    try {
+      windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+      View v = LayoutInflater.from(this).inflate(R.layout.alarm_overlay, null);
+
+      ((TextView) v.findViewById(R.id.overlay_label)).setText(pre ? "Soon: " + title : title);
+      ((TextView) v.findViewById(R.id.overlay_time)).setText(
+          new java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+              .format(new java.util.Date()));
+
+      Button stop = v.findViewById(R.id.overlay_stop);
+      Button snooze = v.findViewById(R.id.overlay_snooze);
+      stop.setText(pre ? "Dismiss" : "Stop");
+      stop.setOnClickListener(view -> triggerAction(ACTION_STOP));
+      if (pre) {
+        snooze.setVisibility(View.GONE);
+      } else {
+        snooze.setOnClickListener(view -> triggerAction(ACTION_SNOOZE));
+      }
+
+      int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+          ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+          : WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+      WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+          WindowManager.LayoutParams.MATCH_PARENT,
+          WindowManager.LayoutParams.MATCH_PARENT,
+          type,
+          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+              | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+          PixelFormat.TRANSLUCENT);
+      params.gravity = Gravity.CENTER;
+
+      windowManager.addView(v, params);
+      overlayView = v;
+    } catch (Exception e) {
+      overlayView = null;
+    }
+  }
+
+  private void removeOverlay() {
+    if (overlayView == null) return;
+    try {
+      windowManager.removeView(overlayView);
+    } catch (Exception ignored) {
+      /* already gone */
+    }
+    overlayView = null;
+  }
+
+  private void triggerAction(String action) {
+    Intent i = new Intent(this, AlarmService.class);
+    i.setAction(action);
+    if (currentExtras != null) i.putExtras(currentExtras);
+    startService(i);
   }
 
   // ---------------------------------------------------------------- notification
@@ -224,6 +311,8 @@ public class AlarmService extends Service {
     isRinging = false;
     currentAlarmId = null;
     currentKind = null;
+    currentExtras = null;
+    removeOverlay();
     if (player != null) {
       try { player.stop(); } catch (Exception ignored) {}
       player.release();

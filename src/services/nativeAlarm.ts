@@ -33,6 +33,8 @@ export interface AlarmClockPlugin {
   openExactAlarmSettings(): Promise<void>;
   canUseFullScreenIntent(): Promise<{ granted: boolean }>;
   openFullScreenIntentSettings(): Promise<void>;
+  canDrawOverlays(): Promise<{ granted: boolean }>;
+  openOverlaySettings(): Promise<void>;
   addListener(
     event: 'alarmFired',
     cb: (e: AlarmFiredEvent) => void,

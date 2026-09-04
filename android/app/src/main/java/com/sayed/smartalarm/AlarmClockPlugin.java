@@ -157,6 +157,32 @@ public class AlarmClockPlugin extends Plugin {
     call.resolve();
   }
 
+  /**
+   * The full-screen intent above only auto-launches over a *locked* keyguard —
+   * with the screen already on, Android just shows a notification. "Display
+   * over other apps" lets the service draw its own full-screen alarm to cover
+   * that gap.
+   */
+  @PluginMethod
+  public void canDrawOverlays(PluginCall call) {
+    JSObject ret = new JSObject();
+    boolean ok = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+        || Settings.canDrawOverlays(getContext());
+    ret.put("granted", ok);
+    call.resolve(ret);
+  }
+
+  @PluginMethod
+  public void openOverlaySettings(PluginCall call) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      Intent i = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+          Uri.parse("package:" + getContext().getPackageName()));
+      i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      getContext().startActivity(i);
+    }
+    call.resolve();
+  }
+
   private static String orDefault(String v, String d) {
     return v == null || v.isEmpty() ? d : v;
   }
