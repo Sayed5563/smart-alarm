@@ -25,6 +25,12 @@ with a small native alarm layer.
 - **Pre-alarms** stay a gentle `@capacitor/local-notifications` heads-up.
 - If exact-alarm permission is missing (Android 12–13), scheduling falls back to
   an inexact alarm — Settings shows an **"Allow exact alarms"** button.
+- **Full-screen intent** (`USE_FULL_SCREEN_INTENT`): auto-granted below Android 14;
+  on 14+ a side-loaded build may need it granted by hand — Settings shows an
+  **"Allow full-screen alarm"** button (`canUseFullScreenIntent()` /
+  `ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT`). Without it the alarm still rings
+  and posts a notification, but the wake screen won't cover the lock screen and
+  the display won't turn itself on.
 
 ## Prerequisites
 

@@ -271,6 +271,12 @@ export const en = {
   'settings.exactAlarmsGrant': 'Allow exact alarms',
   'settings.exactAlarmsOk': 'Exact alarms are allowed',
 
+  'settings.fsi': 'Full-screen alarm',
+  'settings.fsiBody':
+    'Lets the alarm screen appear over the lock screen. Without it a locked phone only shows a notification.',
+  'settings.fsiGrant': 'Allow full-screen alarm',
+  'settings.fsiOk': 'Full-screen alarm is allowed',
+
   'settings.dnd': 'Quiet hours',
   'settings.dndBody':
     'An in-app quiet period. Note: a website cannot control your device’s real Do Not Disturb — this only affects Smart Alarm.',

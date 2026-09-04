@@ -122,6 +122,10 @@ export const useStore = create<StoreState>()(
           alarms: s.alarms.map((a) => {
             if (a.id !== id) return a;
             const next = { ...a, ...patch } as Alarm;
+            // Editing the time / repeat re-arms a spent 'once' alarm.
+            if ('hour' in patch || 'minute' in patch || 'repeat' in patch || 'customDays' in patch) {
+              next.lastFiredKey = undefined;
+            }
             next.strongAlert.maxDurationMinutes = clamp(
               next.strongAlert.maxDurationMinutes,
               1,
@@ -145,9 +149,12 @@ export const useStore = create<StoreState>()(
 
       toggleAlarm: (id, enabled) =>
         set((s) => ({
-          alarms: s.alarms.map((a) =>
-            a.id === id ? { ...a, enabled: enabled ?? !a.enabled, snoozedUntil: undefined } : a,
-          ),
+          alarms: s.alarms.map((a) => {
+            if (a.id !== id) return a;
+            const on = enabled ?? !a.enabled;
+            // Re-enabling arms it fresh — forget that it already rang once.
+            return { ...a, enabled: on, snoozedUntil: undefined, lastFiredKey: on ? undefined : a.lastFiredKey };
+          }),
         })),
 
       duplicateAlarm: (id) => {

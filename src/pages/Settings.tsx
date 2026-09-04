@@ -272,6 +272,7 @@ export function Settings() {
           )}
         </div>
         {isNativeApp && <ExactAlarmRow />}
+        {isNativeApp && <FullScreenIntentRow />}
       </SettingsSection>
 
       {/* -------------------------------------------------- Quiet hours */}
@@ -434,43 +435,79 @@ function SettingsSection({ title, children }: { title: string; children: ReactNo
   );
 }
 
-function ExactAlarmRow() {
-  const t = useT();
+/** A "grant this OS permission" row: checks on mount + when the tab regains focus. */
+function PermissionRow({
+  check,
+  open,
+  label,
+  body,
+  ok,
+  grant,
+}: {
+  check: () => Promise<{ granted: boolean }>;
+  open: () => Promise<void>;
+  label: string;
+  body: string;
+  ok: string;
+  grant: string;
+}) {
   const [granted, setGranted] = useState<boolean | null>(null);
 
-  const check = () =>
-    AlarmClock.canScheduleExactAlarms()
-      .then((r) => setGranted(r.granted))
-      .catch(() => setGranted(null));
-
   useEffect(() => {
-    void check();
-    const onVis = () => document.visibilityState === 'visible' && void check();
+    const run = () =>
+      check()
+        .then((r) => setGranted(r.granted))
+        .catch(() => setGranted(null));
+    void run();
+    const onVis = () => document.visibilityState === 'visible' && void run();
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, []);
+  }, [check]);
 
   if (granted === null) return null;
 
   return (
     <div className="py-3">
-      <div className="text-sm font-medium">{t('settings.exactAlarms')}</div>
+      <div className="text-sm font-medium">{label}</div>
       {granted ? (
-        <p className="mt-1 text-xs text-success">{t('settings.exactAlarmsOk')}</p>
+        <p className="mt-1 text-xs text-success">{ok}</p>
       ) : (
         <>
-          <p className="mt-1 text-xs leading-relaxed text-muted">{t('settings.exactAlarmsBody')}</p>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-2"
-            onClick={() => void AlarmClock.openExactAlarmSettings()}
-          >
-            {t('settings.exactAlarmsGrant')}
+          <p className="mt-1 text-xs leading-relaxed text-muted">{body}</p>
+          <Button variant="secondary" size="sm" className="mt-2" onClick={() => void open()}>
+            {grant}
           </Button>
         </>
       )}
     </div>
+  );
+}
+
+function ExactAlarmRow() {
+  const t = useT();
+  return (
+    <PermissionRow
+      check={() => AlarmClock.canScheduleExactAlarms()}
+      open={() => AlarmClock.openExactAlarmSettings()}
+      label={t('settings.exactAlarms')}
+      body={t('settings.exactAlarmsBody')}
+      ok={t('settings.exactAlarmsOk')}
+      grant={t('settings.exactAlarmsGrant')}
+    />
+  );
+}
+
+function FullScreenIntentRow() {
+  const t = useT();
+  return (
+    <PermissionRow
+      check={() => AlarmClock.canUseFullScreenIntent()}
+      open={() => AlarmClock.openFullScreenIntentSettings()}
+      label={t('settings.fsi')}
+      body={t('settings.fsiBody')}
+      ok={t('settings.fsiOk')}
+      grant={t('settings.fsiGrant')}
+    />
   );
 }
 

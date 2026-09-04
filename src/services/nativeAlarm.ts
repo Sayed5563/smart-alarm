@@ -30,6 +30,8 @@ export interface AlarmClockPlugin {
   stopRinging(): Promise<void>;
   canScheduleExactAlarms(): Promise<{ granted: boolean }>;
   openExactAlarmSettings(): Promise<void>;
+  canUseFullScreenIntent(): Promise<{ granted: boolean }>;
+  openFullScreenIntentSettings(): Promise<void>;
   addListener(
     event: 'alarmFired',
     cb: (e: AlarmFiredEvent) => void,

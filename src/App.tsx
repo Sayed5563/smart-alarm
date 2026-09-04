@@ -94,6 +94,8 @@ export default function App() {
       if (e.action === 'snooze') {
         s.updateAlarm(alarm.id, {
           snoozedUntil: Date.now() + alarm.snoozeMinutes * 60_000,
+          // Mark the occurrence spent so a 'once' alarm isn't re-armed for tomorrow.
+          lastFiredKey: e.firedKey || `${Date.now()}`,
         });
         return;
       }

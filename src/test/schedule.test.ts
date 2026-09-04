@@ -137,6 +137,25 @@ describe('scheduleSet (native OS scheduling)', () => {
     expect(evs.some((e) => e.kind === 'alarm')).toBe(true);
   });
 
+  it('a snoozed "once" alarm that already rang registers only the snooze, not tomorrow', () => {
+    const now = new Date(2026, 5, 1, 8, 0, 0).getTime(); // 08:00, past the 07:00 slot
+    const spent = makeAlarm(settings, {
+      hour: 7,
+      minute: 0,
+      repeat: 'once',
+      snoozedUntil: now + 5 * 60_000,
+      lastFiredKey: 'fired',
+    });
+    const evs = scheduleSet([spent], settings, null, now);
+    expect(evs).toEqual([{ alarmId: spent.id, kind: 'snooze', at: now + 5 * 60_000 }]);
+  });
+
+  it('a spent "once" alarm (rang, not snoozed) registers nothing', () => {
+    const now = new Date(2026, 5, 1, 8, 0, 0).getTime();
+    const spent = makeAlarm(settings, { hour: 7, minute: 0, repeat: 'once', lastFiredKey: 'fired' });
+    expect(scheduleSet([spent], settings, null, now)).toHaveLength(0);
+  });
+
   it('skips disabled alarms and profile-excluded alarms', () => {
     const now = Date.now();
     const on = at(7, 0);
