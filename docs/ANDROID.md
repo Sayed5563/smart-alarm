@@ -2,88 +2,86 @@
 
 The browser PWA can't fire an alarm when it's fully closed. The Android build
 can: it's the same web app wrapped with [Capacitor](https://capacitorjs.com/),
-with alarm scheduling delegated to Android's `AlarmManager`.
+with a small native alarm layer.
 
-## Status
+## What it does
 
-**Phase A — done.** `nativeAlarmScheduler` (`src/services/nativeAlarmScheduler.ts`)
-registers every upcoming alarm/pre-alarm as an exact
-`@capacitor/local-notifications` schedule (`allowWhileIdle: true`). When an
-alarm fires the OS shows a high-importance notification on the **Alarms**
-channel (plays `res/raw/alarm.wav`, vibrates, Stop / Snooze actions). Tapping it
-opens the app and the normal ring screen takes over. `App` picks this scheduler
-automatically via `Capacitor.isNativePlatform()` — nothing else changes.
-
-**Phase B — not built yet.** For a full-screen "wake the device" alarm that
-bypasses Do-Not-Disturb and plays on the alarm audio stream, a small native
-plugin (`AlarmManager.setAlarmClock()` + a foreground `Service` + a
-full-screen-intent `Activity`) is needed. Phase A is a normal heads-up
-notification: loud and it wakes the screen briefly, but it won't take over the
-lock screen.
+- **Exact scheduling** — `AlarmClock` plugin (`android/app/.../AlarmClockPlugin.java`)
+  arms every upcoming main alarm / snooze with `AlarmManager.setAlarmClock()`
+  (exact, survives Doze). Persisted in `SharedPreferences` and re-armed on boot
+  (`BootReceiver`).
+- **Ringing** — when an alarm fires, `AlarmReceiver` starts `AlarmService`, a
+  foreground service that:
+  - plays `res/raw/alarm.wav` on the **ALARM audio stream** (bypasses the ringer
+    and, on its own channel, Do-Not-Disturb), looping, near-max volume
+  - vibrates
+  - posts a **full-screen-intent** notification that launches the app **over the
+    lock screen** (`MainActivity` sets `showWhenLocked` / `turnScreenOn`)
+  - auto-stops after a 15-minute safety cap
+- **The ring UI is the same web screen** — `MainActivity` forwards the alarm to
+  the plugin, which emits `alarmFired`; `nativeAlarmScheduler` calls `beginRing`.
+  Stop / Snooze in the web UI (or on the notification) call back into the plugin
+  to stop the service; snooze reschedules through the normal web store → sync.
+- **Pre-alarms** stay a gentle `@capacitor/local-notifications` heads-up.
+- If exact-alarm permission is missing (Android 12–13), scheduling falls back to
+  an inexact alarm — Settings shows an **"Allow exact alarms"** button.
 
 ## Prerequisites
 
-- Node 18+ (repo pins 22 via `.nvmrc`; anything ≥18 works for the wrapper)
-- **JDK 17** and the **Android SDK** — easiest via Android Studio
-  (Giraffe / Hedgehog or newer)
+- Node 18+ · **JDK 17** · Android SDK (easiest via Android Studio). Both are on
+  this machine; the first Gradle build auto-installs Build-Tools 34 + Platform 34.
 
 ## Build & run
 
 ```bash
 npm install
-npm run android:open      # build web -> cap sync -> open Android Studio
+npm run android:open      # build web → cap sync → open Android Studio
 ```
 
-In Android Studio: pick a device/emulator (Android 8+), press **Run**. First
-launch asks for the notification permission — allow it. On Android 12+ also
-allow **"Alarms & reminders"** (exact alarms) if prompted.
+In Android Studio pick a device / emulator (Android 8+), **Run**. First launch
+asks for **Notifications**; on Android 12+ also grant **"Alarms & reminders"** if
+prompted (or use the Settings button in the app).
 
-To build an installable APK: **Build → Build App Bundle(s) / APK(s) → Build
-APK(s)**, or:
+Build an APK from the CLI:
 
 ```bash
 cd android && ./gradlew assembleDebug
-# -> android/app/build/outputs/apk/debug/app-debug.apk
+# -> android/app/build/outputs/apk/debug/app-debug.apk  (~5 MB)
 ```
-
-Other useful scripts:
 
 | script | does |
 |---|---|
 | `npm run android:sync` | rebuild web + copy into `android/` |
-| `npm run android:run` | sync + `cap run android` (build & install on a connected device) |
-| `npm run gen:sound` | regenerate `android/app/src/main/res/raw/alarm.wav` |
+| `npm run android:run`  | sync + build + install on a connected device |
+| `npm run gen:sound`    | regenerate `res/raw/alarm.wav` |
 
-## Testing the "closed app" case
+## Test the "closed app" case
 
-1. Create an alarm a couple of minutes out, save.
-2. **Swipe the app away** from recents (fully close it).
-3. Lock the phone.
-4. At the set time the alarm notification fires with sound + vibration; tapping
-   it opens the ring screen.
+1. Alarm ~2 minutes out → Save.
+2. **Swipe the app away** from recents. Lock the phone. Optionally enable DND.
+3. At the time: screen turns on, full-screen alarm over the lock screen, loud
+   sound + vibration. Stop / Snooze work from the screen or the notification.
 
-If it doesn't fire: Settings → Apps → Smart Alarm → check **Notifications** and
-**Alarms & reminders** are allowed, and that battery optimisation isn't
-"Restricted" for the app.
+If it doesn't fire: Settings → Apps → Smart Alarm → **Notifications** and
+**Alarms & reminders** allowed; battery optimisation **not** "Restricted"
+(some OEMs — Xiaomi, Samsung, Oppo — need the app whitelisted / "Autostart" on).
 
-## How the web ↔ native seam works
+## The web ↔ native seam
 
-- `src/utils/schedule.ts` is pure. `scheduleSet()` returns every occurrence to
-  register (next few per alarm + pre-alarms + any snooze). Both schedulers use it.
-- `src/services/scheduler.ts` exports `scheduler` — the native one on device,
-  the web timer one in a browser. Same `configure / start / stop / sync / peek`.
-- `nativeAlarmScheduler.reschedule()` diff-syncs the OS notification set on a
-  400 ms debounce and on every app resume.
-- Notification tap / "Stop" / "Snooze" arrive via
-  `localNotificationActionPerformed` → `onDue({ …, action })` → `App` either
-  opens the ring screen, snoozes, or ignores.
+| file | role |
+|---|---|
+| `src/utils/schedule.ts` · `scheduleSet()` | pure — every occurrence to register (both schedulers use it) |
+| `src/services/platform.ts` · `isNativeApp` | `Capacitor.isNativePlatform()` |
+| `src/services/scheduler.ts` · `scheduler` | native on device, web timer in a browser — same `configure/start/stop/sync/peek` |
+| `src/services/nativeAlarmScheduler.ts` | `AlarmClock.schedule` for main/snooze, `LocalNotifications` for pre-alarm; listens for `alarmFired` |
+| `src/services/nativeAlarm.ts` | typed `AlarmClock` plugin proxy + `stopNativeAlarm()` |
+| `android/app/src/main/java/com/sayed/smartalarm/*.java` | the plugin, scheduler, receiver, service, boot receiver, store |
 
-## Packaging notes
+## Not covered
 
-- `appId` `com.sayed.smartalarm`, `appName` "Smart Alarm" — see
-  `capacitor.config.ts`.
-- The `android/` project is committed; the copied web bundle
-  (`android/app/src/main/assets/public`) is git-ignored and regenerated by
-  `cap sync`, so always run a sync after cloning.
-- Manifest adds `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `POST_NOTIFICATIONS`,
-  `WAKE_LOCK`, `VIBRATE`, `RECEIVE_BOOT_COMPLETED`.
+- iOS (no `@capacitor/ios` yet — the seam is ready for it).
+- Custom per-alarm sounds on the *native* ringtone — the closed-app alarm always
+  plays the bundled `alarm.wav`; the in-app ring screen still uses the Web Audio
+  engine with the alarm's chosen sound once the app is open.
+- Not yet run on a physical device by the author — expect one round of
+  OEM-specific tweaks (battery/autostart).

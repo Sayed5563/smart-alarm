@@ -5,7 +5,14 @@ import { useT } from '@/i18n';
 import { useNow } from '@/hooks/useNow';
 import { formatClock, formatAlarmTime } from '@/utils/time';
 import { categoryIcon } from '@/data/categories';
-import { audioService, vibrationService, notificationService, type PlayHandle } from '@/services';
+import {
+  audioService,
+  vibrationService,
+  notificationService,
+  isNativeApp,
+  stopNativeAlarm,
+  type PlayHandle,
+} from '@/services';
 import { Button } from './ui';
 import { WakeUpTaskRunner } from './WakeUpTask';
 
@@ -40,6 +47,7 @@ export function AlarmRinging() {
     mainHandle.current?.stop(150);
     mainHandle.current = null;
     vibrationService.stop();
+    void stopNativeAlarm();
   }, []);
 
   const finish = useCallback(
@@ -64,26 +72,31 @@ export function AlarmRinging() {
 
     let cancelled = false;
     const isPre = kind === 'pre-alarm';
+    // On the native build a real alarm is already being played by the foreground
+    // AlarmService (ALARM stream, bypasses DND) — don't double it up here.
+    const nativeOwnsSound = isNativeApp && kind === 'alarm';
     const soundId = isPre ? alarm.preAlarm.soundId : alarm.soundId;
     const volume = isPre ? alarm.preAlarm.volume : alarm.volume;
     const fade = isPre ? 0 : alarm.fadeInSeconds;
 
-    (async () => {
-      if (!audioService.isUnlocked()) {
-        const ok = await audioService.unlock();
-        if (!ok && !cancelled) setNeedsSoundTap(true);
-      }
-      const h = await audioService.play(soundId, { volume, fadeInSeconds: fade, loop: true });
-      if (cancelled) {
-        h.stop(0);
-        return;
-      }
-      mainHandle.current = h;
-      if (h.id === -1) setNeedsSoundTap(true);
-    })();
+    if (!nativeOwnsSound) {
+      (async () => {
+        if (!audioService.isUnlocked()) {
+          const ok = await audioService.unlock();
+          if (!ok && !cancelled) setNeedsSoundTap(true);
+        }
+        const h = await audioService.play(soundId, { volume, fadeInSeconds: fade, loop: true });
+        if (cancelled) {
+          h.stop(0);
+          return;
+        }
+        mainHandle.current = h;
+        if (h.id === -1) setNeedsSoundTap(true);
+      })();
 
-    if (!isPre && alarm.vibration !== 'off') {
-      vibrationService.startRepeating(alarm.vibration, alarm.strongAlert.enabled ? 4000 : 8000);
+      if (!isPre && alarm.vibration !== 'off') {
+        vibrationService.startRepeating(alarm.vibration, alarm.strongAlert.enabled ? 4000 : 8000);
+      }
     }
 
     const cap = isPre

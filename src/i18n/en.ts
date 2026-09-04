@@ -265,6 +265,12 @@ export const en = {
   'settings.notificationsDenied': 'Notifications were blocked in your browser settings',
   'settings.notificationsUnsupported': 'This browser does not support notifications',
 
+  'settings.exactAlarms': 'Exact alarms',
+  'settings.exactAlarmsBody':
+    'Android needs this permission to ring alarms at the exact time while the app is closed.',
+  'settings.exactAlarmsGrant': 'Allow exact alarms',
+  'settings.exactAlarmsOk': 'Exact alarms are allowed',
+
   'settings.dnd': 'Quiet hours',
   'settings.dndBody':
     'An in-app quiet period. Note: a website cannot control your device’s real Do Not Disturb — this only affects Smart Alarm.',

@@ -21,6 +21,8 @@ import {
   vibrationService,
   storageService,
   updateService,
+  isNativeApp,
+  AlarmClock,
 } from '@/services';
 import { isPlausibleExportBundle } from '@/utils/validation';
 import { pad2 } from '@/utils/time';
@@ -269,6 +271,7 @@ export function Settings() {
             </Button>
           )}
         </div>
+        {isNativeApp && <ExactAlarmRow />}
       </SettingsSection>
 
       {/* -------------------------------------------------- Quiet hours */}
@@ -428,6 +431,46 @@ function SettingsSection({ title, children }: { title: string; children: ReactNo
       <h2 className="mb-2.5 px-1 text-[13px] font-medium text-muted">{title}</h2>
       <Card className="divide-y divide-hairline !py-1">{children}</Card>
     </section>
+  );
+}
+
+function ExactAlarmRow() {
+  const t = useT();
+  const [granted, setGranted] = useState<boolean | null>(null);
+
+  const check = () =>
+    AlarmClock.canScheduleExactAlarms()
+      .then((r) => setGranted(r.granted))
+      .catch(() => setGranted(null));
+
+  useEffect(() => {
+    void check();
+    const onVis = () => document.visibilityState === 'visible' && void check();
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
+  if (granted === null) return null;
+
+  return (
+    <div className="py-3">
+      <div className="text-sm font-medium">{t('settings.exactAlarms')}</div>
+      {granted ? (
+        <p className="mt-1 text-xs text-success">{t('settings.exactAlarmsOk')}</p>
+      ) : (
+        <>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{t('settings.exactAlarmsBody')}</p>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-2"
+            onClick={() => void AlarmClock.openExactAlarmSettings()}
+          >
+            {t('settings.exactAlarmsGrant')}
+          </Button>
+        </>
+      )}
+    </div>
   );
 }
 
