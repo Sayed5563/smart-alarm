@@ -28,6 +28,7 @@ export interface AlarmClockPlugin {
   cancelAll(): Promise<void>;
   listScheduled(): Promise<{ ids: number[] }>;
   stopRinging(): Promise<void>;
+  closeAlarmScreen(): Promise<void>;
   canScheduleExactAlarms(): Promise<{ granted: boolean }>;
   openExactAlarmSettings(): Promise<void>;
   canUseFullScreenIntent(): Promise<{ granted: boolean }>;
@@ -47,5 +48,18 @@ export async function stopNativeAlarm(): Promise<void> {
     await AlarmClock.stopRinging();
   } catch {
     /* plugin missing / already stopped */
+  }
+}
+
+/**
+ * After Stop / Snooze, drop back to the lock screen / previous app instead of
+ * leaving the full app open. No-op on web, or if the app wasn't alarm-launched.
+ */
+export async function closeNativeAlarmScreen(): Promise<void> {
+  if (!isNativeApp) return;
+  try {
+    await AlarmClock.closeAlarmScreen();
+  } catch {
+    /* plugin missing */
   }
 }

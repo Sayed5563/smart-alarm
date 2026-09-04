@@ -11,6 +11,7 @@ import {
   notificationService,
   isNativeApp,
   stopNativeAlarm,
+  closeNativeAlarmScreen,
   type PlayHandle,
 } from '@/services';
 import { Button } from './ui';
@@ -59,6 +60,7 @@ export function AlarmRinging() {
       const r = useStore.getState().ringing;
       if (r) void notificationService.clear(`alarm-${r.alarmId}`);
       endRing(outcome, taskCompleted);
+      void closeNativeAlarmScreen();
     },
     [cleanupAudioVibration, endRing],
   );
@@ -309,6 +311,7 @@ export function AlarmRinging() {
                 cleanupAudioVibration();
                 window.clearTimeout(safetyTimer.current);
                 addSnooze();
+                void closeNativeAlarmScreen();
               }}
               className="h-14 w-full rounded-[1.5rem] border border-white/25 text-base font-medium text-white/90 transition hover:bg-white/10 active:scale-[0.98]"
             >
