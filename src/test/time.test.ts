@@ -91,6 +91,37 @@ describe('nextOccurrence', () => {
     const alarm = { ...base, repeat: 'custom' as const, customDays: [] };
     expect(nextOccurrence(alarm, new Date(2026, 5, 1))).toBeNull();
   });
+
+  // An alarm must ring at the wall-clock time you set on *every* day of the
+  // year. Advancing by a fixed 86_400_000 ms broke this on the two DST
+  // changeover days (a 23h / 25h calendar day), landing the alarm an hour off.
+  // These sweeps are timezone-agnostic: in a DST zone they cover both
+  // transitions, in a fixed-offset zone they're a sanity check.
+  it('a "once" alarm always lands on its own wall-clock time, every day of the year', () => {
+    for (let day = 0; day < 366; day++) {
+      // 23:30 local — late enough that "today at 07:00" has always passed, so
+      // every iteration exercises the roll-to-tomorrow branch.
+      const from = new Date(2026, 0, 1 + day, 23, 30, 0, 0);
+      const at = new Date(nextOccurrence(base, from)!);
+      expect(
+        `${from.toDateString()} -> ${at.getHours()}:${at.getMinutes()}`,
+      ).toBe(`${from.toDateString()} -> 7:0`);
+    }
+  });
+
+  it('a repeating alarm always lands on its own wall-clock time and an allowed day', () => {
+    const alarm = { ...base, repeat: 'weekdays' as const };
+    for (let day = 0; day < 366; day++) {
+      const from = new Date(2026, 0, 1 + day, 23, 30, 0, 0);
+      const at = new Date(nextOccurrence(alarm, from)!);
+      expect(at.getHours()).toBe(7);
+      expect(at.getMinutes()).toBe(0);
+      expect([1, 2, 3, 4, 5]).toContain(at.getDay());
+      // Never more than a long weekend away — a skipped calendar date would
+      // push this past the Friday→Monday gap.
+      expect(at.getTime() - from.getTime()).toBeLessThanOrEqual(4 * 86_400_000);
+    }
+  });
 });
 
 describe('formatCountdown', () => {

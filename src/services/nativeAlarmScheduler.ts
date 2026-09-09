@@ -18,10 +18,20 @@ import type { DueEvent, SchedulerLike, SchedulerState } from './alarmScheduler';
  */
 const PRE_CHANNEL_ID = 'pre-alarm';
 
+/** How long a fired occurrence stays de-duped. Comfortably longer than the
+ *  service's 15-minute ring cap, so a retained event can't be replayed twice. */
+const HANDLED_TTL_MS = 20 * 60_000;
+
+type PlannedEvent = { alarmId: string; kind: string; at: number };
+
 function numericId(key: string): number {
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (Math.imul(h, 31) + key.charCodeAt(i)) | 0;
   return Math.abs(h) % 2_000_000_000;
+}
+
+function keyOf(e: PlannedEvent): string {
+  return `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`;
 }
 
 class NativeAlarmScheduler implements SchedulerLike {
@@ -30,7 +40,9 @@ class NativeAlarmScheduler implements SchedulerLike {
   private started = false;
   private syncTimer = 0;
   private lastKeys = new Set<string>();
-  private handled = new Set<string>();
+  /** firedKey:action → when we handled it. Pruned by age, never wholesale. */
+  private handled = new Map<string, number>();
+  private listeners: { remove: () => Promise<void> }[] = [];
 
   configure(getState: () => SchedulerState, onDue: (e: DueEvent) => void): void {
     this.getState = getState;
@@ -55,13 +67,23 @@ class NativeAlarmScheduler implements SchedulerLike {
       /* best effort */
     }
 
-    void AlarmClock.addListener('alarmFired', (e: AlarmFiredEvent) => this.fired(e));
-    LocalNotifications.addListener('localNotificationReceived', (n) => this.fired(fromNotif(n)));
-    LocalNotifications.addListener('localNotificationActionPerformed', (e) =>
-      this.fired(fromNotif(e.notification)),
-    );
-
-    App.addListener('resume', () => this.sync());
+    // Keep every handle. Without them `stop()` can't detach, and a second
+    // start() (a remount, a re-configure) stacks a duplicate alarmFired
+    // listener on top of the first one.
+    try {
+      this.listeners.push(
+        await AlarmClock.addListener('alarmFired', (e: AlarmFiredEvent) => this.fired(e)),
+        await LocalNotifications.addListener('localNotificationReceived', (n) =>
+          this.fired(fromNotif(n)),
+        ),
+        await LocalNotifications.addListener('localNotificationActionPerformed', (e) =>
+          this.fired(fromNotif(e.notification)),
+        ),
+        await App.addListener('resume', () => this.sync()),
+      );
+    } catch {
+      /* a missing listener must not stop the scheduler from arming alarms */
+    }
 
     void this.warnIfInexact();
     this.sync();
@@ -69,8 +91,9 @@ class NativeAlarmScheduler implements SchedulerLike {
 
   stop(): void {
     this.started = false;
-    void LocalNotifications.removeAllListeners();
-    void App.removeAllListeners();
+    window.clearTimeout(this.syncTimer);
+    for (const l of this.listeners) void l.remove();
+    this.listeners = [];
   }
 
   sync(): void {
@@ -82,9 +105,7 @@ class NativeAlarmScheduler implements SchedulerLike {
     if (!this.getState) return null;
     const s = this.getState();
     const [first] = scheduleSet(s.alarms, s.settings, s.activeAlarmIds, now);
-    return first
-      ? { ...first, firedKey: `${first.alarmId}:${first.kind}:${minuteKey(first.at)}` }
-      : null;
+    return first ? { ...first, firedKey: keyOf(first) } : null;
   }
 
   async requestExactAlarmPermission(): Promise<void> {
@@ -100,9 +121,16 @@ class NativeAlarmScheduler implements SchedulerLike {
   private fired(e: AlarmFiredEvent | null): void {
     if (!e || !e.alarmId) return;
     const key = `${e.firedKey}:${e.action ?? 'ring'}`;
+    const now = Date.now();
+
+    // Prune by age. Clearing the whole set on a size cap (as we used to) could
+    // drop the key of an alarm that had *just* fired, so a redelivered event
+    // would ring it a second time.
+    for (const [k, t] of this.handled) {
+      if (now - t > HANDLED_TTL_MS) this.handled.delete(k);
+    }
     if (this.handled.has(key)) return;
-    this.handled.add(key);
-    if (this.handled.size > 100) this.handled.clear();
+    this.handled.set(key, now);
 
     this.onDue?.({
       alarmId: e.alarmId,
@@ -130,18 +158,19 @@ class NativeAlarmScheduler implements SchedulerLike {
     const { alarms, settings, activeAlarmIds } = this.getState();
     const events = scheduleSet(alarms, settings, activeAlarmIds, Date.now());
 
-    const keys = new Set(events.map((e) => `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`));
+    const keys = new Set(events.map(keyOf));
     if (setsEqual(keys, this.lastKeys)) return;
-    this.lastKeys = keys;
 
     const label = (id: string) => alarms.find((a) => a.id === id)?.label || 'Alarm';
+    const main = events.filter((e) => e.kind !== 'pre-alarm');
+    const pre = events.filter((e) => e.kind === 'pre-alarm');
 
     // ---- main alarms + snoozes → the native alarm plugin
-    const main = events.filter((e) => e.kind !== 'pre-alarm');
+    let nativeOk = true;
     try {
       await AlarmClock.cancelAll();
       for (const e of main) {
-        const key = `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`;
+        const key = keyOf(e);
         await AlarmClock.schedule({
           id: numericId(key),
           at: e.at,
@@ -152,12 +181,14 @@ class NativeAlarmScheduler implements SchedulerLike {
         });
       }
     } catch {
-      // Plugin unavailable — fall back to notification-only for main alarms too.
-      await this.fallbackSchedule(main, label);
+      nativeOk = false;
     }
 
-    // ---- pre-alarms → local notification
-    const pre = events.filter((e) => e.kind === 'pre-alarm');
+    // ---- notifications, in one pass: clear what's pending, then post the
+    // pre-alarms plus — only when the native path failed — a notification-only
+    // stand-in for the main alarms. Cancelling *after* writing those fallbacks
+    // (which is what the old order did) deleted the very notifications it had
+    // just scheduled, so a failed native schedule left no alarm at all.
     try {
       const pending = await LocalNotifications.getPending();
       if (pending.notifications.length) {
@@ -165,49 +196,32 @@ class NativeAlarmScheduler implements SchedulerLike {
           notifications: pending.notifications.map((n) => ({ id: n.id })),
         });
       }
-      if (pre.length) {
-        await LocalNotifications.schedule({
-          notifications: pre.map<LocalNotificationSchema>((e) => {
-            const key = `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`;
-            return {
-              id: numericId(key),
-              title: `Soon: ${label(e.alarmId)}`,
-              body: 'Your alarm is coming up',
-              schedule: { at: new Date(e.at), allowWhileIdle: true },
-              channelId: PRE_CHANNEL_ID,
-              smallIcon: 'ic_stat_alarm',
-              extra: { alarmId: e.alarmId, kind: 'pre-alarm', at: e.at, firedKey: key },
-            };
-          }),
-        });
-      }
+      const notifications = [
+        ...pre.map((e) => this.notification(e, `Soon: ${label(e.alarmId)}`, 'Your alarm is coming up')),
+        ...(nativeOk ? [] : main.map((e) => this.notification(e, label(e.alarmId), 'Alarm'))),
+      ];
+      if (notifications.length) await LocalNotifications.schedule({ notifications });
     } catch {
       /* best effort */
     }
+
+    // Only remember a set we actually armed. Recording it up front meant a
+    // failed schedule was never retried — the next sync saw "nothing changed"
+    // and returned early, so that alarm silently never existed.
+    this.lastKeys = nativeOk ? keys : new Set();
   }
 
-  private async fallbackSchedule(
-    events: { alarmId: string; kind: string; at: number }[],
-    label: (id: string) => string,
-  ): Promise<void> {
-    try {
-      await LocalNotifications.schedule({
-        notifications: events.map<LocalNotificationSchema>((e) => {
-          const key = `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`;
-          return {
-            id: numericId(key),
-            title: label(e.alarmId),
-            body: 'Tap to open Smart Alarm',
-            schedule: { at: new Date(e.at), allowWhileIdle: true },
-            channelId: PRE_CHANNEL_ID,
-            smallIcon: 'ic_stat_alarm',
-            extra: { alarmId: e.alarmId, kind: e.kind, at: e.at, firedKey: key },
-          };
-        }),
-      });
-    } catch {
-      /* best effort */
-    }
+  private notification(e: PlannedEvent, title: string, body: string): LocalNotificationSchema {
+    const key = keyOf(e);
+    return {
+      id: numericId(key),
+      title,
+      body,
+      schedule: { at: new Date(e.at), allowWhileIdle: true },
+      channelId: PRE_CHANNEL_ID,
+      smallIcon: 'ic_stat_alarm',
+      extra: { alarmId: e.alarmId, kind: e.kind, at: e.at, firedKey: key },
+    };
   }
 }
 

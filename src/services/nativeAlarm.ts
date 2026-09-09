@@ -29,6 +29,7 @@ export interface AlarmClockPlugin {
   listScheduled(): Promise<{ ids: number[] }>;
   stopRinging(): Promise<void>;
   closeAlarmScreen(): Promise<void>;
+  dismissKeyguard(): Promise<void>;
   canScheduleExactAlarms(): Promise<{ granted: boolean }>;
   openExactAlarmSettings(): Promise<void>;
   canUseFullScreenIntent(): Promise<{ granted: boolean }>;
@@ -50,6 +51,20 @@ export async function stopNativeAlarm(): Promise<void> {
     await AlarmClock.stopRinging();
   } catch {
     /* plugin missing / already stopped */
+  }
+}
+
+/**
+ * Ask the device to unlock. Only for a wake-up task, which needs the keyboard
+ * or the camera — the alarm screen itself deliberately never asks, since being
+ * told to authenticate just to reach Stop is the whole thing we're avoiding.
+ */
+export async function requestKeyguardDismiss(): Promise<void> {
+  if (!isNativeApp) return;
+  try {
+    await AlarmClock.dismissKeyguard();
+  } catch {
+    /* plugin missing */
   }
 }
 

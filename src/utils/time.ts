@@ -60,6 +60,18 @@ function atTime(base: Date, hour: number, minute: number): Date {
   return d;
 }
 
+/** The same wall-clock date N calendar days later.
+ *
+ *  Uses setDate rather than `+ n * DAY_MS`: on the two DST changeover days a
+ *  calendar day is 23 or 25 hours, so adding a fixed 86 400 000 ms lands an
+ *  hour off (a 7:00 alarm ringing at 6:00 or 8:00) and can skip or repeat a
+ *  calendar date entirely — which for a weekday alarm means a missed day. */
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 /**
  * Next epoch-ms this alarm's H:M should ring, strictly after `from`.
  * Returns null when the alarm can never ring (e.g. custom repeat with no days).
@@ -74,13 +86,13 @@ export function nextOccurrence(
   if (alarm.repeat === 'once') {
     const today = atTime(from, alarm.hour, alarm.minute);
     if (today.getTime() > from.getTime()) return today.getTime();
-    return today.getTime() + DAY_MS;
+    return atTime(addDays(from, 1), alarm.hour, alarm.minute).getTime();
   }
 
   if (days.length === 0) return null;
 
   for (let offset = 0; offset <= 7; offset++) {
-    const cand = atTime(new Date(from.getTime() + offset * DAY_MS), alarm.hour, alarm.minute);
+    const cand = atTime(addDays(from, offset), alarm.hour, alarm.minute);
     if (cand.getTime() <= from.getTime()) continue;
     if (days.includes(cand.getDay() as Weekday)) return cand.getTime();
   }

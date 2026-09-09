@@ -81,6 +81,42 @@ describe('AlarmScheduler (integration)', () => {
     sch.stop();
   });
 
+  it('two alarms set to the same minute both fire', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 1, 6, 59, 55));
+    const a = makeAlarm(settings, { hour: 7, minute: 0, repeat: 'daily', label: 'A' });
+    const b = makeAlarm(settings, { hour: 7, minute: 0, repeat: 'daily', label: 'B' });
+    const { sch, fired } = makeScheduler([a, b]);
+    sch.start();
+
+    vi.setSystemTime(new Date(2026, 5, 1, 7, 0, 1));
+    vi.advanceTimersByTime(6_000);
+    vi.advanceTimersByTime(2_000); // resync inside the grace window
+
+    // Regression: firing only the single soonest event let the runner-up sit
+    // behind the de-duped winner until it aged out, so it never rang at all.
+    expect(new Set(fired.map((f) => f.alarmId))).toEqual(new Set([a.id, b.id]));
+    sch.stop();
+  });
+
+  it('alarms a minute apart each fire exactly once', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 1, 6, 59, 55));
+    const alarms = [0, 1, 2].map((m) =>
+      makeAlarm(settings, { hour: 7, minute: m, repeat: 'daily', label: `+${m}` }),
+    );
+    const { sch, fired } = makeScheduler(alarms);
+    sch.start();
+
+    for (const m of [0, 1, 2]) {
+      vi.setSystemTime(new Date(2026, 5, 1, 7, m, 1));
+      vi.advanceTimersByTime(31_000);
+    }
+
+    expect(fired.map((f) => f.alarmId)).toEqual(alarms.map((a) => a.id));
+    sch.stop();
+  });
+
   it('peek() reports the next event without arming anything', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 5, 1, 6, 0, 0));
