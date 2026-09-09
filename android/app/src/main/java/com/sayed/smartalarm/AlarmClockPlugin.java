@@ -60,6 +60,7 @@ public class AlarmClockPlugin extends Plugin {
     e.kind = call.getString("kind", "alarm");
     e.alarmId = call.getString("alarmId", "");
     e.firedKey = call.getString("firedKey", "");
+    e.snoozeMinutes = call.getInt("snoozeMinutes", 0);
     if (e.id == 0 || e.at <= 0) {
       call.reject("id and at are required");
       return;
@@ -83,6 +84,29 @@ public class AlarmClockPlugin extends Plugin {
   public void cancelAll(PluginCall call) {
     AlarmScheduling.cancelAll(getContext());
     call.resolve();
+  }
+
+  /**
+   * Drain the Stop/Snooze actions the user took while the web layer wasn't
+   * running. These used to arrive by launching MainActivity — which is what
+   * made the app flash open after Stop — so now they simply queue up natively
+   * and the app collects them whenever it next runs.
+   */
+  @PluginMethod
+  public void consumePendingActions(PluginCall call) {
+    com.getcapacitor.JSArray actions = new com.getcapacitor.JSArray();
+    for (AlarmStore.Entry e : AlarmStore.takePending(getContext())) {
+      JSObject o = new JSObject();
+      o.put("alarmId", orDefault(e.alarmId, ""));
+      o.put("kind", orDefault(e.kind, "alarm"));
+      o.put("at", e.at);
+      o.put("firedKey", orDefault(e.firedKey, ""));
+      o.put("action", orDefault(e.action, "stop"));
+      actions.put(o);
+    }
+    JSObject ret = new JSObject();
+    ret.put("actions", actions);
+    call.resolve(ret);
   }
 
   @PluginMethod

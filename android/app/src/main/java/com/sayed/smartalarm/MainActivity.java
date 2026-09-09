@@ -16,40 +16,21 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     registerPlugin(AlarmClockPlugin.class);
-    Intent intent = getIntent();
-    startedByAlarm = isAlarmIntent(intent);
-    boolean handoff = isHandoff(intent);
+    startedByAlarm = isAlarmIntent(getIntent());
     super.onCreate(savedInstanceState);
-    if (handoff) {
-      // Stop / Snooze from the notification or the native overlay: we only came
-      // up to hand the result to the JS store (history, once-alarm bookkeeping).
-      // Never actually show — background immediately, before the first frame.
-      moveTaskToBack(true);
-    } else if (startedByAlarm) {
-      applyAlarmWindowFlags();
-    }
+    if (startedByAlarm) applyAlarmWindowFlags();
   }
 
   @Override
   protected void onNewIntent(Intent intent) {
-    boolean handoff = isHandoff(intent);
     if (isAlarmIntent(intent)) startedByAlarm = true;
     super.onNewIntent(intent);
     setIntent(intent);
-    if (handoff) {
-      moveTaskToBack(true);
-    } else if (startedByAlarm) {
-      applyAlarmWindowFlags();
-    }
+    if (startedByAlarm) applyAlarmWindowFlags();
   }
 
   private static boolean isAlarmIntent(Intent i) {
     return i != null && i.getBooleanExtra("sa_launchedByAlarm", false);
-  }
-
-  /** A Stop/Snooze relay (see AlarmService#handoffToApp), not a real alarm screen. */
-  private static boolean isHandoff(Intent i) {
-    return i != null && i.getStringExtra("sa_action") != null;
   }
 
   /**

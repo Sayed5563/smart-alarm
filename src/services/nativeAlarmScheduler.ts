@@ -79,14 +79,33 @@ class NativeAlarmScheduler implements SchedulerLike {
         await LocalNotifications.addListener('localNotificationActionPerformed', (e) =>
           this.fired(fromNotif(e.notification)),
         ),
-        await App.addListener('resume', () => this.sync()),
+        await App.addListener('resume', () => {
+          void this.drainPending();
+          this.sync();
+        }),
       );
     } catch {
       /* a missing listener must not stop the scheduler from arming alarms */
     }
 
     void this.warnIfInexact();
+    void this.drainPending();
     this.sync();
+  }
+
+  /**
+   * Collect the Stop/Snooze actions the user took while the web layer wasn't
+   * running. The service records them rather than launching the app to hand
+   * them over — that launch is what made the app flash open after Stop — so
+   * this is where history and the once-alarm bookkeeping catch up.
+   */
+  private async drainPending(): Promise<void> {
+    try {
+      const { actions } = await AlarmClock.consumePendingActions();
+      for (const a of actions) this.fired(a);
+    } catch {
+      /* not native / plugin missing */
+    }
   }
 
   stop(): void {
@@ -162,6 +181,7 @@ class NativeAlarmScheduler implements SchedulerLike {
     if (setsEqual(keys, this.lastKeys)) return;
 
     const label = (id: string) => alarms.find((a) => a.id === id)?.label || 'Alarm';
+    const snoozeMins = (id: string) => alarms.find((a) => a.id === id)?.snoozeMinutes ?? 5;
     const main = events.filter((e) => e.kind !== 'pre-alarm');
     const pre = events.filter((e) => e.kind === 'pre-alarm');
 
@@ -178,6 +198,7 @@ class NativeAlarmScheduler implements SchedulerLike {
           kind: e.kind,
           alarmId: e.alarmId,
           firedKey: key,
+          snoozeMinutes: snoozeMins(e.alarmId),
         });
       }
     } catch {

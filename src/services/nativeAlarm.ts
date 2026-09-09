@@ -23,7 +23,10 @@ export interface AlarmClockPlugin {
     kind: string;
     alarmId: string;
     firedKey: string;
+    /** Lets the service re-arm a snooze without waking the web layer. */
+    snoozeMinutes: number;
   }): Promise<void>;
+  consumePendingActions(): Promise<{ actions: AlarmFiredEvent[] }>;
   cancel(opts: { id: number }): Promise<void>;
   cancelAll(): Promise<void>;
   listScheduled(): Promise<{ ids: number[] }>;

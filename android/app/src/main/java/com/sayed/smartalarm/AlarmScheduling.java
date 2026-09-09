@@ -17,6 +17,26 @@ final class AlarmScheduling {
   static final String EXTRA_TITLE = "sa_title";
   static final String EXTRA_FIRED_KEY = "sa_firedKey";
   static final String EXTRA_AT = "sa_at";
+  static final String EXTRA_SNOOZE_MIN = "sa_snoozeMin";
+
+  /** Mirrors the web layer's `minuteKey` — note Calendar.MONTH is 0-based, as
+   *  JavaScript's getMonth() is, so the two produce identical strings. */
+  static String minuteKey(long ms) {
+    java.util.Calendar c = java.util.Calendar.getInstance();
+    c.setTimeInMillis(ms);
+    return c.get(java.util.Calendar.YEAR)
+        + "-" + c.get(java.util.Calendar.MONTH)
+        + "-" + c.get(java.util.Calendar.DAY_OF_MONTH)
+        + "-" + c.get(java.util.Calendar.HOUR_OF_DAY)
+        + "-" + c.get(java.util.Calendar.MINUTE);
+  }
+
+  /** Mirrors the web layer's `numericId` (31-hash, 32-bit wrap, mod 2e9). */
+  static int numericId(String key) {
+    int h = 0;
+    for (int i = 0; i < key.length(); i++) h = h * 31 + key.charAt(i);
+    return Math.abs(h) % 2_000_000_000;
+  }
 
   private static AlarmManager am(Context ctx) {
     return (AlarmManager) ctx.getApplicationContext().getSystemService(Context.ALARM_SERVICE);
@@ -31,6 +51,7 @@ final class AlarmScheduling {
     i.putExtra(EXTRA_TITLE, e.title);
     i.putExtra(EXTRA_FIRED_KEY, e.firedKey);
     i.putExtra(EXTRA_AT, e.at);
+    i.putExtra(EXTRA_SNOOZE_MIN, e.snoozeMinutes);
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
     return PendingIntent.getBroadcast(ctx, e.id, i, flags);
