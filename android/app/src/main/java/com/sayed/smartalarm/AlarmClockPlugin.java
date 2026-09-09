@@ -100,6 +100,16 @@ public class AlarmClockPlugin extends Plugin {
     call.resolve();
   }
 
+  /** Ask to unlock — only used when a wake-up task needs the keyboard/camera. */
+  @PluginMethod
+  public void dismissKeyguard(PluginCall call) {
+    final Activity a = getActivity();
+    if (a instanceof MainActivity) {
+      a.runOnUiThread(() -> ((MainActivity) a).requestKeyguardDismiss());
+    }
+    call.resolve();
+  }
+
   /** After Stop / Snooze: if the app only came up for the alarm, send it back. */
   @PluginMethod
   public void closeAlarmScreen(PluginCall call) {

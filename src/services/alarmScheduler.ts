@@ -1,10 +1,15 @@
 import type { Alarm, AppSettings } from '@/types';
-import { nextEvent, type ScheduledEvent } from '@/utils/schedule';
+import { nextEvent, upcomingEvents, type ScheduledEvent } from '@/utils/schedule';
 import { minuteKey } from '@/utils/time';
 
 /** How far back a due occurrence is still considered fireable. Covers late
  *  timers, the 20s heartbeat gap, and short background throttling. */
 const GRACE_MS = 75_000;
+
+/** How long a fired occurrence stays de-duped. Must comfortably exceed
+ *  GRACE_MS, or an occurrence still inside the look-back window could be
+ *  fired a second time after its key was forgotten. */
+const FIRED_TTL_MS = 10 * 60_000;
 
 export interface SchedulerState {
   alarms: Alarm[];
@@ -55,7 +60,8 @@ export class AlarmScheduler {
   private heartbeat: number | null = null;
   private running = false;
   private boundResync = () => this.sync();
-  private firedKeys = new Set<string>();
+  /** occurrence key → when it fired. Pruned by age, never wholesale. */
+  private firedKeys = new Map<string, number>();
 
   configure(getState: () => SchedulerState, onDue: (e: DueEvent) => void): void {
     this.getState = getState;
@@ -100,9 +106,19 @@ export class AlarmScheduler {
     // timer was throttled (or just a few ms ago — timers always fire late) is
     // still caught instead of being skipped to tomorrow. De-dupe handles the
     // overlap where the same occurrence stays "recent" for the grace window.
-    const due = nextEvent(state.alarms, state.settings, state.activeAlarmIds, now - GRACE_MS);
-    if (due && due.at <= now + 250) {
-      this.fire(due);
+    // Collect *every* occurrence that's due, not just the soonest: two alarms
+    // set to the same minute must both ring. Taking only the single next event
+    // meant the runner-up stayed "soonest" behind the already-de-duped winner
+    // on each resync until it aged out of the grace window — and never fired.
+    const due = upcomingEvents(
+      state.alarms,
+      state.settings,
+      state.activeAlarmIds,
+      now - GRACE_MS,
+      GRACE_MS + 250,
+    );
+    if (due.length) {
+      for (const ev of due) this.fire(ev);
       this.timer = window.setTimeout(this.boundResync, 500);
       return;
     }
@@ -128,14 +144,18 @@ export class AlarmScheduler {
   private fire(ev: ScheduledEvent): void {
     const key = `${ev.alarmId}:${ev.kind}:${minuteKey(ev.at)}`;
     if (this.firedKeys.has(key)) return;
-    this.firedKeys.add(key);
+    this.firedKeys.set(key, Date.now());
     this.onDue?.({ ...ev, firedKey: key });
   }
 
   private pruneFiredKeys(): void {
-    // Keys embed a minute stamp; this set only grows within a grace window, so
-    // a size-based clear is enough to stop unbounded growth.
-    if (this.firedKeys.size >= 50) this.firedKeys.clear();
+    // Drop only keys older than the de-dupe window. The previous size-capped
+    // `clear()` could wipe the key of an occurrence that had just fired while
+    // it was still inside the GRACE_MS look-back — and then fire it again.
+    const cutoff = Date.now() - FIRED_TTL_MS;
+    for (const [k, t] of this.firedKeys) {
+      if (t < cutoff) this.firedKeys.delete(k);
+    }
   }
 }
 

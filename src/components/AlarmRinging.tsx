@@ -12,6 +12,7 @@ import {
   isNativeApp,
   stopNativeAlarm,
   closeNativeAlarmScreen,
+  requestKeyguardDismiss,
   type PlayHandle,
 } from '@/services';
 import { Button } from './ui';
@@ -22,6 +23,31 @@ import { WakeUpTaskRunner } from './WakeUpTask';
 const GLOBAL_MAX_MS = 15 * 60_000;
 const PRE_ALARM_MAX_MS = 3 * 60_000;
 const AFTER_SOUND_MAX_MS = 3 * 60_000;
+
+/**
+ * Get the alarm window off screen *before* the ring session is cleared.
+ *
+ * Clearing it first unmounts this component synchronously, so React paints the
+ * app's ordinary screen while the (async) native dismiss is still in flight —
+ * that is the "app opens for a moment and then disappears" after Stop/Snooze.
+ * Committing only once the activity is backgrounded keeps the whole transition
+ * invisible. The timeout guarantees the alarm still ends if the native bridge
+ * never answers, so a wedged bridge can never leave an alarm stuck ringing.
+ */
+function dismissThenCommit(commit: () => void): void {
+  if (!isNativeApp) {
+    commit();
+    return;
+  }
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    commit();
+  };
+  void closeNativeAlarmScreen().then(run, run);
+  window.setTimeout(run, 500);
+}
 
 export function AlarmRinging() {
   const ringing = useStore((s) => s.ringing);
@@ -59,8 +85,7 @@ export function AlarmRinging() {
       afterHandle.current = null;
       const r = useStore.getState().ringing;
       if (r) void notificationService.clear(`alarm-${r.alarmId}`);
-      endRing(outcome, taskCompleted);
-      void closeNativeAlarmScreen();
+      dismissThenCommit(() => endRing(outcome, taskCompleted));
     },
     [cleanupAudioVibration, endRing],
   );
@@ -175,6 +200,10 @@ export function AlarmRinging() {
       return;
     }
     if (alarm.wakeUpTask.type !== 'none') {
+      // Only now ask to unlock: the task needs the keyboard (math / code) or
+      // the camera (qr), neither of which is reliably available to an activity
+      // drawn over a secure keyguard. Stopping a plain alarm never asks.
+      void requestKeyguardDismiss();
       setShowTask(true);
       return;
     }
@@ -310,8 +339,7 @@ export function AlarmRinging() {
               onClick={() => {
                 cleanupAudioVibration();
                 window.clearTimeout(safetyTimer.current);
-                addSnooze();
-                void closeNativeAlarmScreen();
+                dismissThenCommit(addSnooze);
               }}
               className="h-14 w-full rounded-[1.5rem] border border-white/25 text-base font-medium text-white/90 transition hover:bg-white/10 active:scale-[0.98]"
             >
