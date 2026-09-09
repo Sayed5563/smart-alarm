@@ -137,6 +137,40 @@ describe('scheduleSet (native OS scheduling)', () => {
     expect(evs.some((e) => e.kind === 'alarm')).toBe(true);
   });
 
+  // Snoozing must create a *separate* temporary occurrence, never move the
+  // alarm the user configured.
+  it('snoozing a recurring alarm leaves the original time intact and still schedules it', () => {
+    const now = new Date(2026, 5, 1, 7, 0, 30).getTime(); // just after 07:00
+    const alarm = makeAlarm(settings, { hour: 7, minute: 0, repeat: 'daily' });
+    const snoozed = { ...alarm, snoozedUntil: now + 5 * 60_000, lastFiredKey: 'rang' };
+
+    const evs = scheduleSet([snoozed], settings, null, now);
+
+    // the temporary snooze
+    expect(evs.some((e) => e.kind === 'snooze' && e.at === now + 5 * 60_000)).toBe(true);
+    // and the real alarm, still on its own schedule
+    const nextReal = evs.find((e) => e.kind === 'alarm')!;
+    expect(new Date(nextReal.at).getHours()).toBe(7);
+    expect(new Date(nextReal.at).getMinutes()).toBe(0);
+    expect(nextReal.at).toBeGreaterThan(now);
+    // the stored alarm is untouched
+    expect(snoozed.hour).toBe(7);
+    expect(snoozed.minute).toBe(0);
+    expect(snoozed.repeat).toBe('daily');
+  });
+
+  it('a snooze started before midnight lands on the next day', () => {
+    const now = new Date(2026, 5, 1, 23, 59, 0).getTime();
+    const alarm = makeAlarm(settings, { hour: 23, minute: 59, repeat: 'daily' });
+    const snoozed = { ...alarm, snoozedUntil: now + 5 * 60_000 };
+
+    const snooze = scheduleSet([snoozed], settings, null, now).find((e) => e.kind === 'snooze')!;
+    const at = new Date(snooze.at);
+    expect(at.getHours()).toBe(0);
+    expect(at.getMinutes()).toBe(4);
+    expect(at.getDate()).toBe(2); // next day
+  });
+
   it('a snoozed "once" alarm that already rang registers only the snooze, not tomorrow', () => {
     const now = new Date(2026, 5, 1, 8, 0, 0).getTime(); // 08:00, past the 07:00 slot
     const spent = makeAlarm(settings, {

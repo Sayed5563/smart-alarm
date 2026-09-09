@@ -85,8 +85,11 @@ public class AlarmService extends Service {
         // ourselves. We deliberately do NOT start MainActivity: bringing the
         // app to the foreground purely to hand over a string is what made it
         // flash open the moment you pressed Stop.
-        AlarmStore.addPending(this, pendingAction(intent, snooze ? "snooze" : "stop"));
-        if (snooze) scheduleSnooze(intent);
+        AlarmStore.Entry p = pendingAction(intent, snooze ? "snooze" : "stop");
+        // Record the time we actually armed, so the app doesn't recompute the
+        // snooze from whenever it happens to open and push it further out.
+        if (snooze) p.snoozeUntil = scheduleSnooze(intent);
+        AlarmStore.addPending(this, p);
       }
       stopEverything();
       return START_NOT_STICKY;
@@ -334,10 +337,10 @@ public class AlarmService extends Service {
    * may not run again for hours. When the app does next open it recomputes the
    * schedule from its own state and replaces this with an equivalent alarm.
    */
-  private void scheduleSnooze(Intent src) {
-    if (src == null) return;
+  private long scheduleSnooze(Intent src) {
+    if (src == null) return 0L;
     String alarmId = src.getStringExtra(AlarmScheduling.EXTRA_ALARM_ID);
-    if (alarmId == null || alarmId.isEmpty()) return;
+    if (alarmId == null || alarmId.isEmpty()) return 0L;
 
     int mins = src.getIntExtra(AlarmScheduling.EXTRA_SNOOZE_MIN, 0);
     if (mins <= 0) mins = 5; // matches the app's default when we weren't told
@@ -351,6 +354,7 @@ public class AlarmService extends Service {
     e.firedKey = alarmId + ":snooze:" + AlarmScheduling.minuteKey(e.at);
     e.id = AlarmScheduling.numericId(e.firedKey);
     AlarmScheduling.set(this, e);
+    return e.at;
   }
 
   private static String orDefault(String v, String d) {

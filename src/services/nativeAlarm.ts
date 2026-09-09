@@ -13,6 +13,15 @@ export interface AlarmFiredEvent {
   firedKey: string;
   /** Set when the user hit Stop / Snooze on the notification instead of tapping it. */
   action?: 'stop' | 'snooze';
+  /** For a queued snooze: when the service actually re-armed it. */
+  snoozeUntil?: number;
+  /**
+   * True when this is a *historical* action drained from the native queue on
+   * launch, not something the user just tapped. It must only be used for
+   * bookkeeping — acting on it as if it were live dismisses whatever alarm
+   * happens to be ringing right now.
+   */
+  replay?: boolean;
 }
 
 export interface AlarmClockPlugin {
