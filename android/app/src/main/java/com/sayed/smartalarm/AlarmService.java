@@ -52,6 +52,8 @@ public class AlarmService extends Service {
 
   public static final String ACTION_STOP = "com.sayed.smartalarm.STOP";
   public static final String ACTION_SNOOZE = "com.sayed.smartalarm.SNOOZE";
+  /** Set when the running web UI asked us to stop, so we don't queue it twice. */
+  private static final String EXTRA_FROM_APP = "sa_fromApp";
 
   private MediaPlayer player;
   private Vibrator vibrator;
@@ -72,9 +74,20 @@ public class AlarmService extends Service {
   public int onStartCommand(Intent intent, int flags, int startId) {
     String action = intent != null ? intent.getAction() : null;
     if (ACTION_STOP.equals(action) || ACTION_SNOOZE.equals(action)) {
-      // The web layer / notification / overlay asked us to stop.
       removeOverlay();
-      handoffToApp(intent, ACTION_SNOOZE.equals(action) ? "snooze" : "stop");
+      boolean snooze = ACTION_SNOOZE.equals(action);
+      // When the request came from the web UI the app is already running and
+      // has updated its own state — recording it again would double the
+      // history entry.
+      boolean fromApp = intent != null && intent.getBooleanExtra(EXTRA_FROM_APP, false);
+      if (!fromApp) {
+        // Queue it for whenever the app is next opened, and re-arm a snooze
+        // ourselves. We deliberately do NOT start MainActivity: bringing the
+        // app to the foreground purely to hand over a string is what made it
+        // flash open the moment you pressed Stop.
+        AlarmStore.addPending(this, pendingAction(intent, snooze ? "snooze" : "stop"));
+        if (snooze) scheduleSnooze(intent);
+      }
       stopEverything();
       return START_NOT_STICKY;
     }
@@ -302,12 +315,46 @@ public class AlarmService extends Service {
     return f;
   }
 
-  private void handoffToApp(Intent src, String action) {
-    Intent i = activityIntent(src, action);
-    i.putExtra("sa_action", action);
-    try {
-      startActivity(i);
-    } catch (Exception ignored) {}
+  /** Snapshot of the occurrence the user just acted on, for the web layer. */
+  private AlarmStore.Entry pendingAction(Intent src, String action) {
+    AlarmStore.Entry e = new AlarmStore.Entry();
+    e.action = action;
+    e.alarmId = src != null ? src.getStringExtra(AlarmScheduling.EXTRA_ALARM_ID) : null;
+    e.kind = src != null ? src.getStringExtra(AlarmScheduling.EXTRA_KIND) : "alarm";
+    e.title = src != null ? src.getStringExtra(AlarmScheduling.EXTRA_TITLE) : null;
+    e.firedKey = src != null ? src.getStringExtra(AlarmScheduling.EXTRA_FIRED_KEY) : null;
+    e.at = src != null ? src.getLongExtra(AlarmScheduling.EXTRA_AT, System.currentTimeMillis())
+                       : System.currentTimeMillis();
+    e.snoozeMinutes = src != null ? src.getIntExtra(AlarmScheduling.EXTRA_SNOOZE_MIN, 0) : 0;
+    return e;
+  }
+
+  /**
+   * Re-arm a snoozed alarm here rather than relying on the web layer, which
+   * may not run again for hours. When the app does next open it recomputes the
+   * schedule from its own state and replaces this with an equivalent alarm.
+   */
+  private void scheduleSnooze(Intent src) {
+    if (src == null) return;
+    String alarmId = src.getStringExtra(AlarmScheduling.EXTRA_ALARM_ID);
+    if (alarmId == null || alarmId.isEmpty()) return;
+
+    int mins = src.getIntExtra(AlarmScheduling.EXTRA_SNOOZE_MIN, 0);
+    if (mins <= 0) mins = 5; // matches the app's default when we weren't told
+
+    AlarmStore.Entry e = new AlarmStore.Entry();
+    e.at = System.currentTimeMillis() + mins * 60_000L;
+    e.alarmId = alarmId;
+    e.kind = "snooze";
+    e.title = orDefault(src.getStringExtra(AlarmScheduling.EXTRA_TITLE), "Alarm");
+    e.snoozeMinutes = mins;
+    e.firedKey = alarmId + ":snooze:" + AlarmScheduling.minuteKey(e.at);
+    e.id = AlarmScheduling.numericId(e.firedKey);
+    AlarmScheduling.set(this, e);
+  }
+
+  private static String orDefault(String v, String d) {
+    return v == null || v.isEmpty() ? d : v;
   }
 
   // ---------------------------------------------------------------- lifecycle
@@ -317,6 +364,7 @@ public class AlarmService extends Service {
     if (!isRinging) return;
     Intent i = new Intent(ctx, AlarmService.class);
     i.setAction(ACTION_STOP);
+    i.putExtra(EXTRA_FROM_APP, true);
     ctx.startService(i);
   }
 
