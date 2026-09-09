@@ -102,6 +102,10 @@ public class AlarmClockPlugin extends Plugin {
       o.put("at", e.at);
       o.put("firedKey", orDefault(e.firedKey, ""));
       o.put("action", orDefault(e.action, "stop"));
+      o.put("snoozeUntil", e.snoozeUntil);
+      // Flags this as history, not a live tap: the app must do the bookkeeping
+      // without touching a screen or a ring session that belongs to now.
+      o.put("replay", true);
       actions.put(o);
     }
     JSObject ret = new JSObject();

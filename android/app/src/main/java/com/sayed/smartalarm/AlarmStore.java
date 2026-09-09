@@ -38,6 +38,8 @@ final class AlarmStore {
     int snoozeMinutes;
     /** Only on queued actions: "stop" | "snooze". */
     String action;
+    /** Only on a queued snooze: when the service actually re-armed it. */
+    long snoozeUntil;
 
     JSONObject toJson() throws JSONException {
       JSONObject o = new JSONObject();
@@ -49,6 +51,7 @@ final class AlarmStore {
       o.put("firedKey", firedKey == null ? "" : firedKey);
       o.put("snoozeMinutes", snoozeMinutes);
       if (action != null) o.put("action", action);
+      o.put("snoozeUntil", snoozeUntil);
       return o;
     }
 
@@ -62,6 +65,7 @@ final class AlarmStore {
       e.firedKey = o.optString("firedKey");
       e.snoozeMinutes = o.optInt("snoozeMinutes");
       e.action = o.has("action") ? o.optString("action") : null;
+      e.snoozeUntil = o.optLong("snoozeUntil");
       return e;
     }
   }

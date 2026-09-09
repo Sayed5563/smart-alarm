@@ -157,6 +157,8 @@ class NativeAlarmScheduler implements SchedulerLike {
       at: e.at,
       firedKey: e.firedKey || `${e.alarmId}:${e.kind}:${minuteKey(e.at)}`,
       action: e.action,
+      snoozeUntil: e.snoozeUntil,
+      replay: e.replay,
     });
   }
 

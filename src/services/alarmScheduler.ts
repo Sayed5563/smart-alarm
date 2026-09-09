@@ -24,6 +24,11 @@ export interface DueEvent extends ScheduledEvent {
   /** Native only: the notification action the user chose ('snooze' | 'stop'),
    *  absent for a plain tap or a web-timer fire. */
   action?: string;
+  /** Native only: for a queued snooze, when the service actually re-armed it. */
+  snoozeUntil?: number;
+  /** Native only: a historical action drained from the queue at launch, not a
+   *  live tap. Bookkeeping only — must not dismiss whatever is ringing now. */
+  replay?: boolean;
 }
 
 /** Shared shape so `App` can hold either the web timer scheduler or the native

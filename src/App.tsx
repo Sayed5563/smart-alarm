@@ -98,14 +98,31 @@ export default function App() {
       // alarm's spent-marker end up the same as the web-UI path would leave
       // them.
       if (e.action === 'stop' || e.action === 'snooze') {
-        if (s.ringing?.alarmId !== alarm.id) {
-          s.beginRing(alarm, e.kind === 'pre-alarm' ? 'pre-alarm' : 'alarm');
+        const ringKind = e.kind === 'pre-alarm' ? 'pre-alarm' : 'alarm';
+
+        // A *replayed* action was drained from the native queue when the app
+        // launched — the user may have tapped it hours ago, and something else
+        // (very likely another alarm) may be ringing right now. Record it and
+        // nothing else: no screen dismissal, and never disturb a live session.
+        if (e.replay) {
+          if (!s.ringing) {
+            s.beginRing(alarm, ringKind);
+            if (e.action === 'stop') s.endRing('dismissed-no-task');
+            else s.addSnooze();
+          }
+          if (e.action === 'snooze') {
+            // addSnooze dates the snooze from *now*; use the moment the service
+            // actually armed it, or drop it if that moment has already passed.
+            const until = e.snoozeUntil && e.snoozeUntil > Date.now() ? e.snoozeUntil : undefined;
+            s.updateAlarm(alarm.id, { snoozedUntil: until });
+          }
+          s.updateAlarm(alarm.id, { lastFiredKey: e.firedKey || `${Date.now()}` });
+          return;
         }
-        if (e.action === 'stop') {
-          s.endRing('dismissed-no-task');
-        } else {
-          s.addSnooze();
-        }
+
+        if (s.ringing?.alarmId !== alarm.id) s.beginRing(alarm, ringKind);
+        if (e.action === 'stop') s.endRing('dismissed-no-task');
+        else s.addSnooze();
         // Mark the occurrence spent so a 'once' alarm isn't re-armed for tomorrow.
         s.updateAlarm(alarm.id, { lastFiredKey: e.firedKey || `${Date.now()}` });
         void closeNativeAlarmScreen();
