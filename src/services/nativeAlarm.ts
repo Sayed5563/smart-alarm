@@ -40,7 +40,7 @@ export interface AlarmClockPlugin {
   cancelAll(): Promise<void>;
   listScheduled(): Promise<{ ids: number[] }>;
   stopRinging(): Promise<void>;
-  closeAlarmScreen(): Promise<void>;
+  closeAlarmScreen(): Promise<{ backgrounded: boolean }>;
   dismissKeyguard(): Promise<void>;
   canScheduleExactAlarms(): Promise<{ granted: boolean }>;
   openExactAlarmSettings(): Promise<void>;
@@ -86,9 +86,29 @@ export async function requestKeyguardDismiss(): Promise<void> {
  */
 export async function closeNativeAlarmScreen(): Promise<void> {
   if (!isNativeApp) return;
+  let backgrounded = false;
   try {
-    await AlarmClock.closeAlarmScreen();
+    ({ backgrounded } = await AlarmClock.closeAlarmScreen());
   } catch {
     /* plugin missing */
   }
+  // moveTaskToBack only *starts* the exit animation. Repainting before the
+  // window is hidden is the "app flashes open after Stop" bug, so wait for it.
+  if (backgrounded) await untilHidden(1500);
+}
+
+export function untilHidden(capMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    if (document.visibilityState === 'hidden') return resolve();
+    const done = () => {
+      document.removeEventListener('visibilitychange', onChange);
+      clearTimeout(timer);
+      resolve();
+    };
+    const onChange = () => {
+      if (document.visibilityState === 'hidden') done();
+    };
+    const timer = setTimeout(done, capMs);
+    document.addEventListener('visibilitychange', onChange);
+  });
 }

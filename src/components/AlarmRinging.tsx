@@ -46,7 +46,8 @@ function dismissThenCommit(commit: () => void): void {
     commit();
   };
   void closeNativeAlarmScreen().then(run, run);
-  window.setTimeout(run, 500);
+  // Safety net only; closeNativeAlarmScreen already caps its wait at 1.5s.
+  window.setTimeout(run, 2000);
 }
 
 export function AlarmRinging() {
