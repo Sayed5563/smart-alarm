@@ -184,6 +184,8 @@ class NativeAlarmScheduler implements SchedulerLike {
 
     const label = (id: string) => alarms.find((a) => a.id === id)?.label || 'Alarm';
     const snoozeMins = (id: string) => alarms.find((a) => a.id === id)?.snoozeMinutes ?? 5;
+    const hasTask = (id: string) =>
+      (alarms.find((a) => a.id === id)?.wakeUpTask.type ?? 'none') !== 'none';
     const main = events.filter((e) => e.kind !== 'pre-alarm');
     const pre = events.filter((e) => e.kind === 'pre-alarm');
 
@@ -201,6 +203,7 @@ class NativeAlarmScheduler implements SchedulerLike {
           alarmId: e.alarmId,
           firedKey: key,
           snoozeMinutes: snoozeMins(e.alarmId),
+          hasTask: hasTask(e.alarmId),
         });
       }
     } catch {

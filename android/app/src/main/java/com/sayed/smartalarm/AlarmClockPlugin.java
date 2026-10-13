@@ -61,6 +61,7 @@ public class AlarmClockPlugin extends Plugin {
     e.alarmId = call.getString("alarmId", "");
     e.firedKey = call.getString("firedKey", "");
     e.snoozeMinutes = call.getInt("snoozeMinutes", 0);
+    e.hasTask = call.getBoolean("hasTask", false);
     if (e.id == 0 || e.at <= 0) {
       call.reject("id and at are required");
       return;

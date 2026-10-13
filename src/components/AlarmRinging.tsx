@@ -94,7 +94,8 @@ export function AlarmRinging() {
   // ---- start audio + vibration + safety timer when a session begins
   useEffect(() => {
     if (!ringing || !alarm) return;
-    setShowTask(false);
+    setShowTask(!!ringing.openTask);
+    if (ringing.openTask) void requestKeyguardDismiss();
     setAutoStopped(false);
     setNeedsSoundTap(false);
 

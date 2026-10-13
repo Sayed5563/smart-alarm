@@ -1,6 +1,5 @@
 package com.sayed.smartalarm;
 
-import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -9,25 +8,16 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
-import android.graphics.PixelFormat;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.provider.Settings;
-import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.TextView;
 
 import androidx.core.app.NotificationCompat;
 
@@ -35,18 +25,17 @@ import androidx.core.app.NotificationCompat;
  * Foreground service that runs while an alarm is ringing:
  *  - plays R.raw.alarm on the ALARM stream (bypasses ringer/DND), looping
  *  - vibrates
- *  - posts a full-screen-intent notification that launches MainActivity over
- *    the lock screen
- *  - if the screen is already on (so the OS won't auto-launch the full-screen
- *    intent — that only happens over a locked keyguard), draws its own
- *    full-screen overlay so the alarm isn't just a notification
+ *  - opens AlarmActivity, the native full-screen ringing screen, and posts a
+ *    full-screen-intent notification pointing at it
  *  - auto-stops after a hard safety cap
- * Stopped by MainActivity (via the plugin) when the user hits Stop / Snooze,
- * or by the notification's / overlay's own actions.
+ * Stopped by AlarmActivity's or the notification's Stop / Snooze, or by the
+ * web app (via the plugin) once a wake-up task is solved.
  */
 public class AlarmService extends Service {
 
   static final String CHANNEL_ID = "alarm_ringing";
+  /** Same notification once the alarm screen is up: in the shade, no heads-up over it. */
+  private static final String QUIET_CHANNEL_ID = "alarm_ringing_quiet";
   private static final int NOTIF_ID = 424242;
   private static final long SAFETY_CAP_MS = 15 * 60 * 1000L;
 
@@ -61,20 +50,21 @@ public class AlarmService extends Service {
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final Runnable safety = this::stopEverything;
 
-  private WindowManager windowManager;
-  private View overlayView;
-  private Bundle currentExtras;
 
   /** Set while ringing so the plugin knows there's something to stop. */
   static volatile boolean isRinging = false;
   static volatile String currentAlarmId = null;
   static volatile String currentKind = null;
 
+  private static AlarmService instance;
+  private String notifTitle;
+  private boolean notifPre;
+  private Intent notifSrc;
+
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     String action = intent != null ? intent.getAction() : null;
     if (ACTION_STOP.equals(action) || ACTION_SNOOZE.equals(action)) {
-      removeOverlay();
       boolean snooze = ACTION_SNOOZE.equals(action);
       // When the request came from the web UI the app is already running and
       // has updated its own state — recording it again would double the
@@ -104,7 +94,6 @@ public class AlarmService extends Service {
     isRinging = true;
     currentAlarmId = alarmId;
     currentKind = kind;
-    currentExtras = intent != null ? intent.getExtras() : null;
 
     startForegroundWithNotification(title, pre, intent);
 
@@ -118,25 +107,10 @@ public class AlarmService extends Service {
     startSound(pre);
     if (!pre) startVibration();
 
-    // The OS only auto-launches a full-screen intent over a *locked* keyguard —
-    // with the device unlocked it just shows as a notification. Pick exactly
-    // one way to show the alarm, never both. Keyguard-locked, not screen-on,
-    // is the right question here: some OEM always-on displays (e.g. Samsung's)
-    // keep PowerManager.isInteractive() true while the keyguard is still up,
-    // which used to send those phones down the overlay path and leave the
-    // locked phone with nothing but a notification.
-    KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-    boolean locked = km == null || km.isKeyguardLocked();
-    // Unlocked and in use: draw our own overlay — the whole alarm screen, no
-    // WebView. If it can't be drawn (no "Appear on top" grant, or addView
-    // threw), open the alarm screen instead: an unlocked phone used to get
-    // nothing but the heads-up banner here.
-    if (locked || !showOverlay(title, pre)) {
-      // Locked (incl. an always-on display over the keyguard): nudge the
-      // activity directly in case the full-screen intent doesn't fire on its
-      // own; it shows over the lock screen.
-      startActivity(activityIntent(intent, "fire"));
-    }
+    // One screen, locked or unlocked. Over a locked keyguard the full-screen
+    // intent would launch it anyway; with the phone in use only this direct
+    // start does, which Android allows because the app may "Appear on top".
+    startActivity(alarmScreenIntent(intent));
 
     handler.postDelayed(safety, pre ? 3 * 60 * 1000L : SAFETY_CAP_MS);
     return START_STICKY;
@@ -178,103 +152,22 @@ public class AlarmService extends Service {
     }
   }
 
-  // ---------------------------------------------------------------- overlay
-
-  /** True if we're allowed to draw over other apps (Settings → "Show over other apps"). */
-  private boolean canDrawOverlay() {
-    return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this);
-  }
-
-  /** Returns whether the overlay is on screen. */
-  private boolean showOverlay(String title, boolean pre) {
-    if (overlayView != null) return true;
-    if (!canDrawOverlay()) return false;
-    try {
-      windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-      View v = LayoutInflater.from(this).inflate(R.layout.alarm_overlay, null);
-
-      ((TextView) v.findViewById(R.id.overlay_label)).setText(pre ? "Soon: " + title : title);
-      ((TextView) v.findViewById(R.id.overlay_time)).setText(
-          new java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
-              .format(new java.util.Date()));
-
-      Button stop = v.findViewById(R.id.overlay_stop);
-      Button snooze = v.findViewById(R.id.overlay_snooze);
-      stop.setText(pre ? "Dismiss" : "Stop");
-      stop.setOnClickListener(view -> triggerAction(ACTION_STOP));
-      if (pre) {
-        snooze.setVisibility(View.GONE);
-      } else {
-        snooze.setOnClickListener(view -> triggerAction(ACTION_SNOOZE));
-      }
-
-      int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-          ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-          : WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
-      WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-          WindowManager.LayoutParams.MATCH_PARENT,
-          WindowManager.LayoutParams.MATCH_PARENT,
-          type,
-          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-              | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-          PixelFormat.TRANSLUCENT);
-      params.gravity = Gravity.CENTER;
-
-      windowManager.addView(v, params);
-      overlayView = v;
-      return true;
-    } catch (Exception e) {
-      overlayView = null;
-      return false;
-    }
-  }
-
-  private void removeOverlay() {
-    if (overlayView == null) return;
-    try {
-      windowManager.removeView(overlayView);
-    } catch (Exception ignored) {
-      /* already gone */
-    }
-    overlayView = null;
-  }
-
-  private void triggerAction(String action) {
-    Intent i = new Intent(this, AlarmService.class);
-    i.setAction(action);
-    if (currentExtras != null) i.putExtras(currentExtras);
-    startService(i);
-  }
-
   // ---------------------------------------------------------------- notification
 
+  /** Called by AlarmActivity once it's on screen. */
+  static void quietNotification() {
+    AlarmService s = instance;
+    if (s == null || !isRinging) return;
+    NotificationManager nm = (NotificationManager) s.getSystemService(Context.NOTIFICATION_SERVICE);
+    nm.notify(NOTIF_ID, s.buildNotification(true));
+  }
+
   private void startForegroundWithNotification(String title, boolean pre, Intent src) {
-    createChannel();
-    PendingIntent full = PendingIntent.getActivity(this, 1, activityIntent(src, "fire"),
-        piFlags());
-    PendingIntent stop = PendingIntent.getService(this, 2,
-        serviceAction(ACTION_STOP, src), piFlags());
-    PendingIntent snooze = PendingIntent.getService(this, 3,
-        serviceAction(ACTION_SNOOZE, src), piFlags());
-
-    NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.drawable.ic_stat_alarm)
-        .setContentTitle(pre ? "Soon: " + title : title)
-        .setContentText(pre ? "Your alarm is coming up" : "Alarm")
-        .setPriority(NotificationCompat.PRIORITY_MAX)
-        .setCategory(NotificationCompat.CATEGORY_ALARM)
-        .setOngoing(true)
-        .setAutoCancel(false)
-        .setContentIntent(full)
-        .setFullScreenIntent(full, true);
-
-    if (!pre) {
-      b.addAction(0, "Stop", stop).addAction(0, "Snooze", snooze);
-    } else {
-      b.addAction(0, "Dismiss", stop);
-    }
-
-    Notification n = b.build();
+    instance = this;
+    notifTitle = title;
+    notifPre = pre;
+    notifSrc = src;
+    Notification n = buildNotification(false);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
       startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
     } else {
@@ -282,9 +175,50 @@ public class AlarmService extends Service {
     }
   }
 
-  private void createChannel() {
+  private Notification buildNotification(boolean quiet) {
+    String title = notifTitle;
+    boolean pre = notifPre;
+    Intent src = notifSrc;
+    createChannels();
+    PendingIntent full = PendingIntent.getActivity(this, 1, alarmScreenIntent(src),
+        piFlags());
+    PendingIntent stop = PendingIntent.getService(this, 2,
+        serviceAction(ACTION_STOP, src), piFlags());
+    PendingIntent snooze = PendingIntent.getService(this, 3,
+        serviceAction(ACTION_SNOOZE, src), piFlags());
+
+    NotificationCompat.Builder b = new NotificationCompat.Builder(this, quiet ? QUIET_CHANNEL_ID : CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_stat_alarm)
+        .setContentTitle(pre ? "Soon: " + title : title)
+        .setContentText(pre ? "Your alarm is coming up" : "Alarm")
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setCategory(NotificationCompat.CATEGORY_ALARM)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .setOnlyAlertOnce(true)
+        .setContentIntent(full);
+    if (!quiet) b.setFullScreenIntent(full, true);
+
+    if (!pre) {
+      b.addAction(0, "Stop", stop).addAction(0, "Snooze", snooze);
+    } else {
+      b.addAction(0, "Dismiss", stop);
+    }
+
+    return b.build();
+  }
+
+  private void createChannels() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+    if (nm.getNotificationChannel(QUIET_CHANNEL_ID) == null) {
+      NotificationChannel q = new NotificationChannel(
+          QUIET_CHANNEL_ID, "Ringing alarm (screen open)", NotificationManager.IMPORTANCE_LOW);
+      q.setSound(null, null);
+      q.enableVibration(false);
+      q.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+      nm.createNotificationChannel(q);
+    }
     if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
     NotificationChannel ch = new NotificationChannel(
         CHANNEL_ID, "Ringing alarm", NotificationManager.IMPORTANCE_HIGH);
@@ -298,13 +232,10 @@ public class AlarmService extends Service {
 
   // ---------------------------------------------------------------- intents
 
-  private Intent activityIntent(Intent src, String reason) {
-    Intent i = new Intent(this, MainActivity.class);
-    i.setAction("com.sayed.smartalarm.ALARM_" + reason);
-    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP
-        | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+  private Intent alarmScreenIntent(Intent src) {
+    Intent i = new Intent(this, AlarmActivity.class);
+    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
     if (src != null) i.putExtras(src);
-    i.putExtra("sa_launchedByAlarm", true);
     return i;
   }
 
@@ -354,6 +285,7 @@ public class AlarmService extends Service {
     e.kind = "snooze";
     e.title = orDefault(src.getStringExtra(AlarmScheduling.EXTRA_TITLE), "Alarm");
     e.snoozeMinutes = mins;
+    e.hasTask = src.getBooleanExtra(AlarmActivity.EXTRA_HAS_TASK, false);
     e.firedKey = alarmId + ":snooze:" + AlarmScheduling.minuteKey(e.at);
     e.id = AlarmScheduling.numericId(e.firedKey);
     AlarmScheduling.set(this, e);
@@ -380,8 +312,8 @@ public class AlarmService extends Service {
     isRinging = false;
     currentAlarmId = null;
     currentKind = null;
-    currentExtras = null;
-    removeOverlay();
+    AlarmActivity.close();
+    instance = null;
     if (player != null) {
       try { player.stop(); } catch (Exception ignored) {}
       player.release();

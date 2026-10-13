@@ -69,7 +69,7 @@ export interface StoreState {
   clearHistory: () => void;
 
   // ---- ringing lifecycle
-  beginRing: (alarm: Alarm, kind: RingingSession['kind']) => void;
+  beginRing: (alarm: Alarm, kind: RingingSession['kind'], openTask?: boolean) => void;
   addSnooze: () => void;
   recordTaskFailure: () => void;
   setRingPhase: (phase: RingingSession['phase']) => void;
@@ -277,7 +277,7 @@ export const useStore = create<StoreState>()(
 
       clearHistory: () => set({ history: [] }),
 
-      beginRing: (alarm, kind) => {
+      beginRing: (alarm, kind, openTask) => {
         const now = Date.now();
         const session: RingingSession = {
           id: newId(),
@@ -288,6 +288,7 @@ export const useStore = create<StoreState>()(
           snoozeCount: alarm.snoozedUntil ? 1 : 0,
           wakeTaskFailures: 0,
           phase: 'ringing',
+          openTask,
         };
         set({ ringing: session });
 

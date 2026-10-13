@@ -233,6 +233,8 @@ export interface RingingSession {
   wakeTaskFailures: number;
   /** Set when the after-stop sound is playing. */
   phase: 'ringing' | 'after-stop' | 'done';
+  /** Open on the wake-up task: Stop was already pressed on the native alarm screen. */
+  openTask?: boolean;
 }
 
 export interface ExportBundle {

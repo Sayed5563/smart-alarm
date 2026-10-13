@@ -15,8 +15,6 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
             android:exported="true">
 
             <intent-filter>
@@ -25,6 +23,18 @@
             </intent-filter>
 
         </activity>
+
+        <!-- The ringing screen: native, own task, over the lock screen, full screen -->
+        <activity
+            android:name=".AlarmActivity"
+            android:theme="@style/AlarmTheme"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:screenOrientation="portrait"
+            android:exported="false" />
 
         <!-- Rings the alarm: sound on the ALARM stream, vibration, full-screen intent -->
         <service
