@@ -12,7 +12,7 @@ export interface AlarmFiredEvent {
   at: number;
   firedKey: string;
   /** Set when the user hit Stop / Snooze on the notification instead of tapping it. */
-  action?: 'stop' | 'snooze';
+  action?: 'stop' | 'snooze' | 'task';
   /** For a queued snooze: when the service actually re-armed it. */
   snoozeUntil?: number;
   /**
@@ -34,6 +34,8 @@ export interface AlarmClockPlugin {
     firedKey: string;
     /** Lets the service re-arm a snooze without waking the web layer. */
     snoozeMinutes: number;
+    /** Stop on the native alarm screen opens the app's wake-up task. */
+    hasTask: boolean;
   }): Promise<void>;
   consumePendingActions(): Promise<{ actions: AlarmFiredEvent[] }>;
   cancel(opts: { id: number }): Promise<void>;

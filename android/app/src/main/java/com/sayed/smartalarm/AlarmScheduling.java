@@ -52,6 +52,7 @@ final class AlarmScheduling {
     i.putExtra(EXTRA_FIRED_KEY, e.firedKey);
     i.putExtra(EXTRA_AT, e.at);
     i.putExtra(EXTRA_SNOOZE_MIN, e.snoozeMinutes);
+    i.putExtra(AlarmActivity.EXTRA_HAS_TASK, e.hasTask);
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
     return PendingIntent.getBroadcast(ctx, e.id, i, flags);

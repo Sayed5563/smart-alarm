@@ -36,6 +36,8 @@ final class AlarmStore {
     String firedKey;
     /** Lets the service re-arm a snooze on its own, without waking the web layer. */
     int snoozeMinutes;
+    /** Stop opens the app's wake-up task instead of just stopping. */
+    boolean hasTask;
     /** Only on queued actions: "stop" | "snooze". */
     String action;
     /** Only on a queued snooze: when the service actually re-armed it. */
@@ -50,6 +52,7 @@ final class AlarmStore {
       o.put("alarmId", alarmId == null ? "" : alarmId);
       o.put("firedKey", firedKey == null ? "" : firedKey);
       o.put("snoozeMinutes", snoozeMinutes);
+      o.put("hasTask", hasTask);
       if (action != null) o.put("action", action);
       o.put("snoozeUntil", snoozeUntil);
       return o;
@@ -64,6 +67,7 @@ final class AlarmStore {
       e.alarmId = o.optString("alarmId");
       e.firedKey = o.optString("firedKey");
       e.snoozeMinutes = o.optInt("snoozeMinutes");
+      e.hasTask = o.optBoolean("hasTask");
       e.action = o.has("action") ? o.optString("action") : null;
       e.snoozeUntil = o.optLong("snoozeUntil");
       return e;

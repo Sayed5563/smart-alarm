@@ -133,7 +133,9 @@ export default function App() {
         queueRef.current.push(e);
         return;
       }
-      beginRing(alarm, e.kind === 'pre-alarm' ? 'pre-alarm' : 'alarm');
+      // 'task': Stop was pressed on the native alarm screen of an alarm with a
+      // wake-up task — go straight to the task, the alarm is still ringing.
+      beginRing(alarm, e.kind === 'pre-alarm' ? 'pre-alarm' : 'alarm', e.action === 'task');
     };
 
     scheduler.configure(() => {
