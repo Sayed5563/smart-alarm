@@ -142,10 +142,19 @@ public class AlarmClockPlugin extends Plugin {
   @PluginMethod
   public void closeAlarmScreen(PluginCall call) {
     final Activity a = getActivity();
-    if (a instanceof MainActivity) {
-      a.runOnUiThread(() -> ((MainActivity) a).dismissAlarmScreen());
+    if (!(a instanceof MainActivity)) {
+      call.resolve(backgrounded(false));
+      return;
     }
-    call.resolve();
+    // Resolve only after moveTaskToBack has run, and say whether it did: the
+    // app must not repaint until its window is actually going away.
+    a.runOnUiThread(() -> call.resolve(backgrounded(((MainActivity) a).dismissAlarmScreen())));
+  }
+
+  private static JSObject backgrounded(boolean value) {
+    JSObject ret = new JSObject();
+    ret.put("backgrounded", value);
+    return ret;
   }
 
   @PluginMethod

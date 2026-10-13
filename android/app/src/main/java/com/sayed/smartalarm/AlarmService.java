@@ -127,16 +127,15 @@ public class AlarmService extends Service {
     // locked phone with nothing but a notification.
     KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
     boolean locked = km == null || km.isKeyguardLocked();
-    if (locked) {
+    // Unlocked and in use: draw our own overlay — the whole alarm screen, no
+    // WebView. If it can't be drawn (no "Appear on top" grant, or addView
+    // threw), open the alarm screen instead: an unlocked phone used to get
+    // nothing but the heads-up banner here.
+    if (locked || !showOverlay(title, pre)) {
       // Locked (incl. an always-on display over the keyguard): nudge the
       // activity directly in case the full-screen intent doesn't fire on its
       // own; it shows over the lock screen.
       startActivity(activityIntent(intent, "fire"));
-    } else {
-      // Genuinely unlocked and in use: draw our own overlay. Do NOT also open
-      // the app — the overlay is the whole alarm screen; nothing needs the
-      // WebView.
-      showOverlay(title, pre);
     }
 
     handler.postDelayed(safety, pre ? 3 * 60 * 1000L : SAFETY_CAP_MS);
@@ -186,8 +185,10 @@ public class AlarmService extends Service {
     return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this);
   }
 
-  private void showOverlay(String title, boolean pre) {
-    if (overlayView != null || !canDrawOverlay()) return;
+  /** Returns whether the overlay is on screen. */
+  private boolean showOverlay(String title, boolean pre) {
+    if (overlayView != null) return true;
+    if (!canDrawOverlay()) return false;
     try {
       windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
       View v = LayoutInflater.from(this).inflate(R.layout.alarm_overlay, null);
@@ -221,8 +222,10 @@ public class AlarmService extends Service {
 
       windowManager.addView(v, params);
       overlayView = v;
+      return true;
     } catch (Exception e) {
       overlayView = null;
+      return false;
     }
   }
 

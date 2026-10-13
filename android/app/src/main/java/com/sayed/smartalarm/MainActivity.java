@@ -49,14 +49,14 @@ public class MainActivity extends BridgeActivity {
    * If we only came up for the alarm, drop back to wherever the user was (lock
    * screen / previous app) instead of leaving the app open.
    */
-  void dismissAlarmScreen() {
-    if (!startedByAlarm) return;
+  boolean dismissAlarmScreen() {
+    if (!startedByAlarm) return false;
     startedByAlarm = false;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(false);
       setTurnScreenOn(false);
     }
-    moveTaskToBack(true);
+    return moveTaskToBack(true);
   }
 
   /**
