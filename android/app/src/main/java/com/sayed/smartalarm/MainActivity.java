@@ -6,6 +6,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
 
+import androidx.core.splashscreen.SplashScreen;
+
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -13,11 +15,19 @@ public class MainActivity extends BridgeActivity {
   /** True while this activity instance is only on screen because an alarm launched it. */
   boolean startedByAlarm = false;
 
+  /** Set by the web app once it has painted; the splash stays up until then. */
+  static volatile boolean webReady = false;
+
   @Override
   public void onCreate(Bundle savedInstanceState) {
     registerPlugin(AlarmClockPlugin.class);
     startedByAlarm = isAlarmIntent(getIntent());
+    webReady = false;
+    // Hold the splash over the blank WebView (capped, in case the page never reports in).
+    SplashScreen.installSplashScreen(this).setKeepOnScreenCondition(() -> !webReady);
+    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> webReady = true, 3000);
     super.onCreate(savedInstanceState);
+    getBridge().getWebView().setBackgroundColor(0xFF06070A);
     if (startedByAlarm) applyAlarmWindowFlags();
   }
 

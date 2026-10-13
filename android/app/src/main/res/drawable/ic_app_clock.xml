@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app icon (public/icons/icon-512.png) as a vector, inside the adaptive-icon
+     safe zone. Used for the launcher foreground and the splash. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#3B82F6" android:pathData="M54,21a33,33 0,1 1,0 66a33,33 0,1 1,0 -66z" />
+    <path android:fillColor="#F5F7FB" android:pathData="M54,25.5a28.5,28.5 0,1 1,0 57a28.5,28.5 0,1 1,0 -57z" />
+    <path android:strokeColor="#0A0F1A" android:strokeWidth="3.2" android:strokeLineCap="round"
+        android:pathData="M54,54L61.2,41.7M54,54L50.7,75.7" />
+    <path android:fillColor="#3B82F6" android:pathData="M54,51.8a2.2,2.2 0,1 1,0 4.4a2.2,2.2 0,1 1,0 -4.4z" />
+</vector>

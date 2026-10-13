@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
-import { updateService } from './services';
+import { AlarmClock, isNativeApp, updateService } from './services';
 
 registerSW({
   immediate: true,
@@ -25,4 +25,10 @@ if (el) {
       <App />
     </StrictMode>,
   );
+  // Native: the splash is held over the blank WebView until this first frame is on screen.
+  if (isNativeApp) {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => void AlarmClock.appReady().catch(() => {})),
+    );
+  }
 }
