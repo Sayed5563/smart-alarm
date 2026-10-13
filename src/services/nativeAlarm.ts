@@ -43,6 +43,7 @@ export interface AlarmClockPlugin {
   listScheduled(): Promise<{ ids: number[] }>;
   stopRinging(): Promise<void>;
   closeAlarmScreen(): Promise<{ backgrounded: boolean }>;
+  appReady(): Promise<void>;
   dismissKeyguard(): Promise<void>;
   canScheduleExactAlarms(): Promise<{ granted: boolean }>;
   openExactAlarmSettings(): Promise<void>;

@@ -158,6 +158,13 @@ public class AlarmClockPlugin extends Plugin {
     return ret;
   }
 
+  /** The web app has painted its first frame: let the splash go. */
+  @PluginMethod
+  public void appReady(PluginCall call) {
+    MainActivity.webReady = true;
+    call.resolve();
+  }
+
   @PluginMethod
   public void canScheduleExactAlarms(PluginCall call) {
     JSObject ret = new JSObject();
