@@ -5,6 +5,7 @@ export const en = {
 
   'nav.home': 'Home',
   'nav.alarms': 'Alarms',
+  'nav.timer': 'Timer',
   'nav.history': 'History',
   'nav.settings': 'Settings',
 
