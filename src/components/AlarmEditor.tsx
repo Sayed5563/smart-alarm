@@ -5,7 +5,6 @@ import { useT, type TranslationKey } from '@/i18n';
 import { CATEGORIES } from '@/data/categories';
 import { getBuiltinSound } from '@/data/sounds';
 import { MAX_ALERT_DURATION_MINUTES } from '@/data/defaults';
-import { clamp } from '@/utils/time';
 import { isNativeApp, nativeAlarmScheduler, vibrationService } from '@/services';
 import {
   Sheet,
@@ -18,7 +17,8 @@ import {
   PickerRow,
   cx,
 } from './ui';
-import { RepeatPicker } from './alarmBits';
+import { DayCircles } from './DayCircles';
+import { prepareSave } from '@/utils/alarmSave';
 import { SoundPicker } from './SoundPicker';
 import { TimePicker } from './TimePicker';
 
@@ -30,10 +30,13 @@ export function AlarmEditor({
   alarm,
   isNew,
   onClose,
+  onDelete,
 }: {
   alarm: Alarm;
   isNew: boolean;
   onClose: () => void;
+  /** A user delete: the list shows "Alarm deleted · Undo". */
+  onDelete: (id: string) => void;
 }) {
   const t = useT();
   const updateAlarm = useStore((s) => s.updateAlarm);
@@ -53,13 +56,8 @@ export function AlarmEditor({
       : (getBuiltinSound(id)?.name ?? id);
 
   const save = () => {
-    updateAlarm(draft.id, {
-      ...draft,
-      strongAlert: {
-        ...draft.strongAlert,
-        maxDurationMinutes: clamp(draft.strongAlert.maxDurationMinutes, 1, MAX_ALERT_DURATION_MINUTES),
-      },
-    });
+    const live = useStore.getState().alarms.find((a) => a.id === draft.id) ?? alarm;
+    updateAlarm(draft.id, prepareSave(draft, live, Date.now()));
     onClose();
   };
 
@@ -69,8 +67,8 @@ export function AlarmEditor({
   };
 
   const remove = () => {
-    deleteAlarm(draft.id);
     onClose();
+    onDelete(draft.id);
   };
 
   // ---- sound sub-screen -----------------------------------------------------
@@ -136,7 +134,7 @@ export function AlarmEditor({
         />
 
         <Field label={t('editor.section.repeat')}>
-          <RepeatPicker
+          <DayCircles
             repeat={draft.repeat}
             customDays={draft.customDays}
             onChange={(repeat, customDays) => patch({ repeat, customDays })}
@@ -155,66 +153,36 @@ export function AlarmEditor({
           />
         </Field>
 
-        <Field label={t('editor.category')}>
-          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                aria-pressed={draft.category === c.key}
-                onClick={() => patch({ category: c.key })}
-                className={cx(
-                  'flex shrink-0 items-center gap-1.5 rounded-pill px-3.5 py-2 text-sm font-medium transition',
-                  draft.category === c.key
-                    ? 'bg-accent text-accent-contrast'
-                    : 'bg-surface-2 text-muted hover:text-fg',
-                )}
-              >
-                <span aria-hidden="true">{c.icon}</span>
-                {t(c.labelKey as TranslationKey)}
-              </button>
-            ))}
-          </div>
-        </Field>
-
-        <div className="space-y-4">
-          <PickerRow
-            label={t('editor.sound')}
-            value={soundName(draft.soundId)}
-            onClick={() => setPicking('main')}
-          />
-          <Slider
-            label={t('editor.volume')}
-            value={Math.round(draft.volume * 100)}
-            onChange={(v) => patch({ volume: v / 100 })}
-            format={(v) => `${v}%`}
-          />
-          <Field label={t('editor.fadeIn')} hint={t('editor.fadeInHint')}>
-            <Segmented
-              value={String(draft.fadeInSeconds)}
-              onChange={(v) => patch({ fadeInSeconds: Number(v) as FadeInDuration })}
-              options={FADE_OPTIONS.map((f) => ({
-                value: String(f),
-                label: f === 0 ? t('common.off') : f < 60 ? `${f}s` : `${f / 60}m`,
-              }))}
-            />
-          </Field>
-        </div>
-
-        <RowToggle
-          label={t('editor.enabled')}
-          checked={draft.enabled}
-          onChange={(v) => patch({ enabled: v })}
+        <PickerRow
+          label={t('editor.sound')}
+          value={soundName(draft.soundId)}
+          onClick={() => setPicking('main')}
         />
+
+        <Field label={t('editor.snooze')}>
+          <Segmented
+            value={String(draft.snoozeMinutes)}
+            onChange={(v) => patch({ snoozeMinutes: Number(v) })}
+            options={snoozeOptions.map((n) => ({ value: String(n), label: `${n}m` }))}
+          />
+        </Field>
 
         <Collapsible label={t('editor.more')} open={moreOpen} onOpenChange={setMoreOpen}>
           <div className="space-y-5">
-            {/* snooze */}
-            <Field label={t('editor.snooze')}>
+            <Slider
+              label={t('editor.volume')}
+              value={Math.round(draft.volume * 100)}
+              onChange={(v) => patch({ volume: v / 100 })}
+              format={(v) => `${v}%`}
+            />
+            <Field label={t('editor.fadeIn')} hint={t('editor.fadeInHint')}>
               <Segmented
-                value={String(draft.snoozeMinutes)}
-                onChange={(v) => patch({ snoozeMinutes: Number(v) })}
-                options={snoozeOptions.map((n) => ({ value: String(n), label: `${n}m` }))}
+                value={String(draft.fadeInSeconds)}
+                onChange={(v) => patch({ fadeInSeconds: Number(v) as FadeInDuration })}
+                options={FADE_OPTIONS.map((f) => ({
+                  value: String(f),
+                  label: f === 0 ? t('common.off') : f < 60 ? `${f}s` : `${f / 60}m`,
+                }))}
               />
             </Field>
 
@@ -381,6 +349,28 @@ export function AlarmEditor({
               </div>
             )}
 
+            <Field label={t('editor.category')}>
+              <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    aria-pressed={draft.category === c.key}
+                    onClick={() => patch({ category: c.key })}
+                    className={cx(
+                      'flex shrink-0 items-center gap-1.5 rounded-pill px-3.5 py-2 text-sm font-medium transition',
+                      draft.category === c.key
+                        ? 'bg-accent text-accent-contrast'
+                        : 'bg-surface-2 text-muted hover:text-fg',
+                    )}
+                  >
+                    <span aria-hidden="true">{c.icon}</span>
+                    {t(c.labelKey as TranslationKey)}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
             {/* importance / DND */}
             <Field label={t('editor.importance')}>
               <Segmented
@@ -404,7 +394,7 @@ export function AlarmEditor({
           <Button variant="secondary" size="sm" onClick={() =>
               isNativeApp ? void nativeAlarmScheduler.test({ ...draft }) : beginRing({ ...draft }, 'test')
             }>
-            {t('editor.test')}
+            {t('editor.preview')}
           </Button>
           {!isNew && (
             <button

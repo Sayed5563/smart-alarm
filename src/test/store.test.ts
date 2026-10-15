@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useStore } from '@/store/useStore';
 import { DEFAULT_SETTINGS } from '@/data/defaults';
+import { prepareSave } from '@/utils/alarmSave';
 
 // idb-keyval touches IndexedDB which jsdom lacks — stub the storage service.
 vi.mock('@/services', async (orig) => {
@@ -36,6 +37,36 @@ function reset() {
 beforeEach(reset);
 
 describe('alarm CRUD', () => {
+  it('saving a snoozed one-off with only a new label keeps the snooze and the spent marker', () => {
+    const now = Date.now();
+    const a = useStore.getState().addAlarm({ repeat: 'once', hour: 7, minute: 0 });
+    useStore.getState().updateAlarm(a.id, { lastFiredKey: 'k', snoozedUntil: now + 600_000 });
+    const live = useStore.getState().alarms[0];
+    useStore.getState().updateAlarm(a.id, prepareSave({ ...live, label: 'Renamed' }, live, now));
+    const saved = useStore.getState().alarms[0];
+    expect(saved.snoozedUntil).toBe(now + 600_000);
+    expect(saved.lastFiredKey).toBe('k');
+  });
+
+  it('changing the time still re-arms a spent one-off', () => {
+    const a = useStore.getState().addAlarm({ repeat: 'once', hour: 7, minute: 0 });
+    useStore.getState().updateAlarm(a.id, { lastFiredKey: 'k' });
+    useStore.getState().updateAlarm(a.id, { hour: 8 });
+    expect(useStore.getState().alarms[0].lastFiredKey).toBeUndefined();
+  });
+
+  it('startTimer records the end and the length; cancel clears both', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    useStore.getState().startTimer(90_000);
+    expect(useStore.getState().timerEndsAt).toBe(1_090_000);
+    expect(useStore.getState().timerDurationMs).toBe(90_000);
+    useStore.getState().cancelTimer();
+    expect(useStore.getState().timerEndsAt).toBeNull();
+    expect(useStore.getState().timerDurationMs).toBeNull();
+    vi.useRealTimers();
+  });
+
   it('undoDelete restores the alarm and its profile membership', () => {
     const a = useStore.getState().addAlarm({ label: 'Gym' });
     const p = useStore.getState().addProfile('Work');

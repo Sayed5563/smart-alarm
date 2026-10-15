@@ -35,6 +35,8 @@ export interface StoreState {
   /** When the running timer ends (epoch ms). Persisted, so it survives leaving
    *  the Home screen, the app being closed, and (natively) the phone sleeping. */
   timerEndsAt: number | null;
+  /** The running timer's full length, for the countdown ring. */
+  timerDurationMs: number | null;
 
   /** In-memory only. */
   ringing: RingingSession | null;
@@ -52,7 +54,7 @@ export interface StoreState {
   toggleAlarm: (id: ID, enabled?: boolean) => void;
   duplicateAlarm: (id: ID) => void;
   quickSet: (minutesFromNow: number) => Alarm;
-  startTimer: (minutes: number) => void;
+  startTimer: (ms: number) => void;
   cancelTimer: () => void;
 
   // ---- settings
@@ -111,6 +113,7 @@ export const useStore = create<StoreState>()(
       customWallpapers: [],
       hasCustomWallpaper: false,
       timerEndsAt: null,
+      timerDurationMs: null,
       lastDeleted: null,
       ringing: null,
       lastToast: null,
@@ -135,10 +138,15 @@ export const useStore = create<StoreState>()(
           alarms: s.alarms.map((a) => {
             if (a.id !== id) return a;
             const next = { ...a, ...patch } as Alarm;
-            // Editing the time / repeat re-arms a spent 'once' alarm.
-            if ('hour' in patch || 'minute' in patch || 'repeat' in patch || 'customDays' in patch) {
-              next.lastFiredKey = undefined;
-            }
+            // Changing the time / repeat re-arms a spent 'once' alarm. Compare
+            // values: Save sends the whole alarm, so mere presence of the keys
+            // would wipe the marker of a just-renamed, mid-snooze alarm.
+            const slotChanged =
+              next.hour !== a.hour ||
+              next.minute !== a.minute ||
+              next.repeat !== a.repeat ||
+              next.customDays.join() !== a.customDays.join();
+            if (slotChanged) next.lastFiredKey = undefined;
             next.strongAlert.maxDurationMinutes = clamp(
               next.strongAlert.maxDurationMinutes,
               1,
@@ -209,8 +217,8 @@ export const useStore = create<StoreState>()(
         });
       },
 
-      startTimer: (minutes) => set({ timerEndsAt: Date.now() + minutes * 60_000 }),
-      cancelTimer: () => set({ timerEndsAt: null }),
+      startTimer: (ms) => set({ timerEndsAt: Date.now() + ms, timerDurationMs: ms }),
+      cancelTimer: () => set({ timerEndsAt: null, timerDurationMs: null }),
 
       quickSet: (minutesFromNow) => {
         const t = new Date(Date.now() + minutesFromNow * 60_000);
@@ -492,6 +500,7 @@ export const useStore = create<StoreState>()(
         customWallpapers: s.customWallpapers,
         hasCustomWallpaper: s.hasCustomWallpaper,
         timerEndsAt: s.timerEndsAt,
+        timerDurationMs: s.timerDurationMs,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<StoreState>;

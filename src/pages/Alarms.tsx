@@ -118,7 +118,12 @@ export function Alarms() {
       </button>
 
       {editing && editingAlarm && (
-        <AlarmEditor alarm={editingAlarm} isNew={editing.isNew} onClose={() => setEditing(null)} />
+        <AlarmEditor
+          alarm={editingAlarm}
+          isNew={editing.isNew}
+          onClose={() => setEditing(null)}
+          onDelete={remove}
+        />
       )}
     </div>
   );
