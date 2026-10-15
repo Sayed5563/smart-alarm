@@ -1,4 +1,4 @@
-import { routeHash, type Route } from '@/hooks/useHashRoute';
+import { goBack, routeHash, type Route } from '@/hooks/useHashRoute';
 import { useT } from '@/i18n';
 
 /** Page title, with a back link to the parent page on sub-pages. */
@@ -9,6 +9,10 @@ export function PageHeader({ title, back }: { title: string; back?: Route }) {
       {back && (
         <a
           href={routeHash(back)}
+          onClick={(e) => {
+            e.preventDefault();
+            goBack(back);
+          }}
           aria-label={t('common.back')}
           className="-ml-2 grid h-11 w-11 place-items-center rounded-full text-muted hover:text-fg"
         >

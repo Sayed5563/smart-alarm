@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parentOf, parseRoute, routeHash, tabFor } from '@/hooks/useHashRoute';
+import { backAction, parentOf, parseRoute, routeHash, tabFor } from '@/hooks/useHashRoute';
 
 describe('parseRoute', () => {
   it('maps the tabs', () => {
@@ -34,5 +34,15 @@ describe('settings sub-pages', () => {
     expect(parentOf('history')).toBe('advanced');
     expect(parentOf('advanced')).toBe('settings');
     expect(parentOf('alarms')).toBeNull();
+  });
+});
+
+describe('backAction', () => {
+  it('pops the history entry when we came from the parent, so system Back stays consistent', () => {
+    expect(backAction('advanced', 'advanced')).toBe('pop');
+  });
+  it('replaces instead when we arrived some other way (deep link, notification)', () => {
+    expect(backAction(null, 'advanced')).toBe('replace');
+    expect(backAction('alarms', 'settings')).toBe('replace');
   });
 });

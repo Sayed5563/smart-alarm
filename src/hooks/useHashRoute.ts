@@ -37,13 +37,53 @@ function parse(): Route {
   return parseRoute(window.location.hash);
 }
 
+/**
+ * Our mirror of the browser's history entries, so a sub-page's back arrow can
+ * do what Android's Back would. Without it the arrow pushed a new entry, and
+ * system Back then bounced between History and Advanced.
+ */
+const stack: Route[] = [];
+let replacing = false;
+
+function track(r: Route) {
+  if (replacing) {
+    replacing = false;
+    stack[Math.max(0, stack.length - 1)] = r;
+  } else if (stack.length > 1 && stack[stack.length - 2] === r) {
+    stack.pop();
+  } else if (stack[stack.length - 1] !== r) {
+    stack.push(r);
+  }
+}
+
+/** 'pop' when the previous entry is the parent page, else 'replace' (deep link). */
+export function backAction(prev: Route | null, parent: Route): 'pop' | 'replace' {
+  return prev === parent ? 'pop' : 'replace';
+}
+
+/** A sub-page's back arrow: up to `parent`, without growing the history. */
+export function goBack(parent: Route) {
+  const prev = stack.length > 1 ? stack[stack.length - 2] : null;
+  if (backAction(prev, parent) === 'pop') {
+    window.history.back();
+  } else {
+    replacing = true;
+    window.location.replace(routeHash(parent));
+  }
+}
+
 /** Tiny hash router — no dependency, gives the PWA a working back button and
  *  shareable deep links (#/alarms, #/settings). */
 export function useHashRoute(): [Route, (r: Route) => void] {
   const [route, setRoute] = useState<Route>(parse);
 
   useEffect(() => {
-    const onHash = () => setRoute(parse());
+    track(parse());
+    const onHash = () => {
+      const r = parse();
+      track(r);
+      setRoute(r);
+    };
     window.addEventListener('hashchange', onHash);
     if (!window.location.hash || window.location.hash === '#/home') window.location.replace('#/alarms');
     return () => window.removeEventListener('hashchange', onHash);
