@@ -366,6 +366,8 @@ export const en = {
   'common.enable': 'Enable',
   'common.back': 'Back',
   'settings.advanced': 'Advanced',
+  'settings.advancedHint': 'Wake-up tasks, quiet hours, profiles, history, look, backup',
+  'settings.section.look': 'Look',
   'common.confirm': 'Confirm',
 } as const;
 

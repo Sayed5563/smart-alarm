@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { AlarmHistoryEntry } from '@/types';
 import { useStore } from '@/store/useStore';
 import { useT } from '@/i18n';
+import { PageHeader } from '@/components/PageHeader';
 import { Segmented, Card, Button, ConfirmDialog } from '@/components/ui';
 import { categoryIcon } from '@/data/categories';
 import { computeStats } from '@/utils/stats';
@@ -16,9 +17,7 @@ export function History() {
 
   return (
     <div className="space-y-4">
-      <header className="pt-6">
-        <h1 className="text-[1.7rem] font-semibold tracking-tight">{t('history.title')}</h1>
-      </header>
+      <PageHeader title={t('history.title')} back="advanced" />
 
       <Segmented
         value={tab}
