@@ -36,7 +36,7 @@ export function Navigation({ route, onNavigate }: { route: Route; onNavigate: (r
     <div className="sticky bottom-0 z-30 mx-auto w-full max-w-md px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
       <nav
         aria-label={t('app.name')}
-        className="glass flex items-stretch justify-around rounded-[1.25rem] px-1.5 py-1.5"
+        className="glass !bg-bar flex items-stretch justify-around rounded-[1.25rem] px-1.5 py-1.5"
       >
         {items.map((r) => {
           const active = tabFor(route) === r;
