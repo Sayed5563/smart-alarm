@@ -498,7 +498,7 @@ export const useStore = create<StoreState>()(
           ...p,
           settings: { ...cloneDefaults(), ...(p.settings ?? {}) },
           alarms: Array.isArray(p.alarms)
-            ? p.alarms.map((a) => sanitizeAlarm(a, { ...base, id: newId() }))
+            ? p.alarms.map((a) => sanitizeAlarm(a, { ...base, id: newId() }, { keepRuntimeState: true }))
             : [],
           history: Array.isArray(p.history) ? p.history.slice(0, HISTORY_LIMIT) : [],
           profiles: Array.isArray(p.profiles) ? p.profiles : [],
