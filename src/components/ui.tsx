@@ -19,7 +19,7 @@ type Size = 'sm' | 'md' | 'lg' | 'xl';
 const VARIANTS: Record<Variant, string> = {
   primary:
     'bg-accent text-accent-contrast shadow-[0_8px_24px_-8px_var(--color-accent-soft)] hover:brightness-105 active:brightness-95',
-  secondary: 'glass text-fg hover:bg-surface-2',
+  secondary: 'border border-hairline bg-tile text-fg hover:bg-surface-2',
   ghost: 'text-fg hover:bg-surface-2',
   danger: 'bg-danger text-white hover:brightness-105',
 };
@@ -334,7 +334,7 @@ export function ConfirmDialog({
 
 /* ------------------------------------------------------------------ Card / Field */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx('glass rounded-card p-5', className)}>{children}</div>;
+  return <div className={cx('rounded-card border border-hairline bg-tile p-5', className)}>{children}</div>;
 }
 
 export function Field({

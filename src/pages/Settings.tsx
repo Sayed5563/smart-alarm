@@ -10,8 +10,11 @@ import {
   Field,
   ConfirmDialog,
   Sheet,
+  PickerRow,
   cx,
 } from '@/components/ui';
+import { LinkRow, PageHeader } from '@/components/PageHeader';
+import { getBuiltinSound } from '@/data/sounds';
 import { WallpaperPicker } from '@/components/WallpaperPicker';
 import { SoundPicker } from '@/components/SoundPicker';
 import { ProfilesPanel } from '@/components/ProfilesPanel';
@@ -29,7 +32,7 @@ import { pad2 } from '@/utils/time';
 import { MAX_ALERT_DURATION_MINUTES } from '@/data/defaults';
 import { APP_VERSION } from '@/version';
 
-export function Settings() {
+export function Settings({ view }: { view: 'main' | 'advanced' }) {
   const t = useT();
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -40,6 +43,12 @@ export function Settings() {
   const resetAll = useStore((s) => s.resetAll);
   const clearHistory = useStore((s) => s.clearHistory);
   const toast = useStore((s) => s.toast);
+  const customSounds = useStore((s) => s.customSounds);
+
+  const soundName = (id: string) =>
+    id.startsWith('custom:')
+      ? (customSounds.find((c) => `custom:${c.id}` === id)?.name ?? t('sounds.custom'))
+      : (getBuiltinSound(id)?.name ?? id);
 
   const [confirmReset, setConfirmReset] = useState(false);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
@@ -88,99 +97,17 @@ export function Settings() {
 
   return (
     <div className="space-y-6 pt-6">
-      <h1 className="text-[1.7rem] font-semibold tracking-tight">{t('settings.title')}</h1>
-
-      {/* -------------------------------------------------- Appearance */}
-      <SettingsSection title={t('settings.section.appearance')}>
-        <Field label={t('settings.theme')}>
-          <Segmented
-            value={settings.theme}
-            onChange={(v) => updateSettings({ theme: v })}
-            options={[
-              { value: 'light', label: t('settings.theme.light') },
-              { value: 'dark', label: t('settings.theme.dark') },
-              { value: 'system', label: t('settings.theme.system') },
-            ]}
-          />
-        </Field>
-        <Field label={t('settings.accent')}>
-          <div className="flex gap-2.5" role="radiogroup" aria-label={t('settings.accent')}>
-            {(
-              [
-                ['amber', '#ff9a5e'],
-                ['blue', '#5c9bff'],
-                ['purple', '#a98bff'],
-                ['green', '#45c98a'],
-              ] as const
-            ).map(([key, dot]) => (
-              <button
-                key={key}
-                role="radio"
-                aria-checked={settings.accent === key}
-                aria-label={t(`settings.accent.${key}` as 'settings.accent.amber')}
-                onClick={() => updateSettings({ accent: key })}
-                className={cx(
-                  'grid h-11 w-11 place-items-center rounded-full transition',
-                  settings.accent === key
-                    ? 'ring-2 ring-offset-2 ring-offset-transparent'
-                    : 'opacity-70 hover:opacity-100',
-                )}
-                style={
-                  settings.accent === key
-                    ? ({ '--tw-ring-color': dot } as CSSProperties)
-                    : undefined
-                }
-              >
-                <span className="h-6 w-6 rounded-full" style={{ background: dot }} />
-              </button>
-            ))}
-          </div>
-        </Field>
-        <Field label={t('settings.clockType')}>
-          <Segmented
-            value={settings.clockType}
-            onChange={(v) => updateSettings({ clockType: v })}
-            options={[
-              { value: 'digital', label: t('settings.clockType.digital') },
-              { value: 'analog', label: t('settings.clockType.analog') },
-            ]}
-          />
-        </Field>
-        <Field label={t('settings.clockFont')}>
-          <Segmented
-            value={settings.clockFont}
-            onChange={(v) => updateSettings({ clockFont: v })}
-            options={[
-              { value: 'classic', label: t('settings.clockFont.classic') },
-              { value: 'digital', label: t('settings.clockFont.digital') },
-              { value: 'minimal', label: t('settings.clockFont.minimal') },
-            ]}
-          />
-        </Field>
-        <RowToggle
-          label={t('settings.hour24')}
-          checked={settings.hour24}
-          onChange={(v) => updateSettings({ hour24: v })}
-        />
-        <RowToggle
-          label={t('settings.showSeconds')}
-          checked={settings.showSeconds}
-          onChange={(v) => updateSettings({ showSeconds: v })}
-        />
-        <RowToggle
-          label={t('settings.reducedMotion')}
-          checked={settings.reducedMotion}
-          onChange={(v) => updateSettings({ reducedMotion: v })}
-        />
-        <div className="py-2">
-          <Button variant="secondary" size="sm" onClick={() => setWallpaperOpen(true)}>
-            {t('settings.wallpaper')}
-          </Button>
-        </div>
-      </SettingsSection>
+      {view === 'main' ? (
+        <>
+      <PageHeader title={t('settings.title')} />
 
       {/* -------------------------------------------------- Alarm defaults */}
       <SettingsSection title={t('settings.section.alarm')}>
+        <PickerRow
+          label={t('settings.defaultSound')}
+          value={soundName(settings.defaults.soundId)}
+          onClick={() => setSoundOpen(true)}
+        />
         <Field label={t('settings.defaultSnooze')}>
           <Segmented
             value={String(settings.defaults.snoozeMinutes)}
@@ -204,11 +131,6 @@ export function Settings() {
             }))}
           />
         </Field>
-        <div className="py-2">
-          <Button variant="secondary" size="sm" onClick={() => setSoundOpen(true)}>
-            {t('settings.defaultSound')}
-          </Button>
-        </div>
         <Field
           label={t('settings.defaultVibration')}
           hint={vibrationService.isSupported() ? undefined : t('editor.vibrationUnsupported')}
@@ -225,6 +147,56 @@ export function Settings() {
           />
         </Field>
       </SettingsSection>
+
+      {/* -------------------------------------------------- Appearance */}
+      <SettingsSection title={t('settings.section.appearance')}>
+        <Field label={t('settings.theme')}>
+          <Segmented
+            value={settings.theme}
+            onChange={(v) => updateSettings({ theme: v })}
+            options={[
+              { value: 'light', label: t('settings.theme.light') },
+              { value: 'dark', label: t('settings.theme.dark') },
+              { value: 'system', label: t('settings.theme.system') },
+            ]}
+          />
+        </Field>
+        <RowToggle
+          label={t('settings.hour24')}
+          checked={settings.hour24}
+          onChange={(v) => updateSettings({ hour24: v })}
+        />
+      </SettingsSection>
+
+      {isNativeApp && (
+        <SettingsSection title={t('settings.section.permissions')}>
+          <ExactAlarmRow />
+          <FullScreenIntentRow />
+          <OverlayRow />
+        </SettingsSection>
+      )}
+
+      <section>
+        <Card className="!py-1">
+          <LinkRow label={t('settings.advanced')} to="advanced" />
+        </Card>
+        <p className="mt-2 px-1 text-xs text-muted">{t('settings.advancedHint')}</p>
+      </section>
+
+      {/* -------------------------------------------------- About */}
+      <SettingsSection title={t('settings.section.about')}>
+        <p className="text-sm">{t('about.tagline')}</p>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted">{t('about.version', { v: APP_VERSION })}</p>
+          {!isNativeApp && <UpdateButton />}
+        </div>
+        <About />
+      </SettingsSection>
+
+        </>
+      ) : (
+        <>
+      <PageHeader title={t('settings.advanced')} back="settings" />
 
       {/* -------------------------------------------------- Wake-up */}
       <SettingsSection title={t('settings.section.wake')}>
@@ -246,38 +218,6 @@ export function Settings() {
           checked={settings.defaults.strongAlert}
           onChange={(v) => updateDefaults({ strongAlert: v })}
         />
-      </SettingsSection>
-
-      {/* -------------------------------------------------- Notifications */}
-      {/* The phone app arms real alarms itself; these web notification controls
-          (and the browser notes below) only make sense in the browser. */}
-      <SettingsSection
-        title={t(isNativeApp ? 'settings.section.permissions' : 'settings.section.notifications')}
-      >
-        {!isNativeApp && <p className="text-sm text-muted">{t('settings.notificationsBody')}</p>}
-        <div className={isNativeApp ? 'hidden' : 'mt-3'}>
-          {notifPerm === 'unsupported' && (
-            <p className="text-sm text-muted">{t('settings.notificationsUnsupported')}</p>
-          )}
-          {notifPerm === 'denied' && (
-            <p className="text-sm text-danger">{t('settings.notificationsDenied')}</p>
-          )}
-          {notifPerm === 'granted' && (
-            <RowToggle
-              label={t('settings.notifications')}
-              checked={settings.notificationsEnabled}
-              onChange={(v) => updateSettings({ notificationsEnabled: v })}
-            />
-          )}
-          {notifPerm === 'default' && (
-            <Button variant="secondary" size="sm" onClick={requestNotif}>
-              {t('settings.notificationsRequest')}
-            </Button>
-          )}
-        </div>
-        {isNativeApp && <ExactAlarmRow />}
-        {isNativeApp && <FullScreenIntentRow />}
-        {isNativeApp && <OverlayRow />}
       </SettingsSection>
 
       {/* -------------------------------------------------- Quiet hours */}
@@ -337,12 +277,91 @@ export function Settings() {
         <ProfilesPanel />
       </SettingsSection>
 
+      <SettingsSection title={t('history.title')}>
+        <LinkRow label={t('settings.history')} to="history" />
+      </SettingsSection>
+
+      {/* -------------------------------------------------- Look */}
+      <SettingsSection title={t('settings.section.look')}>
+        <Field label={t('settings.accent')}>
+          <div className="flex gap-2.5" role="radiogroup" aria-label={t('settings.accent')}>
+            {(
+              [
+                ['amber', '#ff9a5e'],
+                ['blue', '#5c9bff'],
+                ['purple', '#a98bff'],
+                ['green', '#45c98a'],
+              ] as const
+            ).map(([key, dot]) => (
+              <button
+                key={key}
+                role="radio"
+                aria-checked={settings.accent === key}
+                aria-label={t(`settings.accent.${key}` as 'settings.accent.amber')}
+                onClick={() => updateSettings({ accent: key })}
+                className={cx(
+                  'grid h-11 w-11 place-items-center rounded-full transition',
+                  settings.accent === key
+                    ? 'ring-2 ring-offset-2 ring-offset-transparent'
+                    : 'opacity-70 hover:opacity-100',
+                )}
+                style={
+                  settings.accent === key
+                    ? ({ '--tw-ring-color': dot } as CSSProperties)
+                    : undefined
+                }
+              >
+                <span className="h-6 w-6 rounded-full" style={{ background: dot }} />
+              </button>
+            ))}
+          </div>
+        </Field>
+        <RowToggle
+          label={t('settings.reducedMotion')}
+          checked={settings.reducedMotion}
+          onChange={(v) => updateSettings({ reducedMotion: v })}
+        />
+        <div className="py-2">
+          <Button variant="secondary" size="sm" onClick={() => setWallpaperOpen(true)}>
+            {t('settings.wallpaper')}
+          </Button>
+        </div>
+      </SettingsSection>
+
+      {!isNativeApp && (
+        <>
+      {/* -------------------------------------------------- Notifications */}
+      {/* The phone app arms real alarms itself; these web notification controls
+          (and the browser notes below) only make sense in the browser. */}
+      <SettingsSection title={t('settings.section.notifications')}>
+        <p className="text-sm text-muted">{t('settings.notificationsBody')}</p>
+        <div className="mt-3">
+          {notifPerm === 'unsupported' && (
+            <p className="text-sm text-muted">{t('settings.notificationsUnsupported')}</p>
+          )}
+          {notifPerm === 'denied' && (
+            <p className="text-sm text-danger">{t('settings.notificationsDenied')}</p>
+          )}
+          {notifPerm === 'granted' && (
+            <RowToggle
+              label={t('settings.notifications')}
+              checked={settings.notificationsEnabled}
+              onChange={(v) => updateSettings({ notificationsEnabled: v })}
+            />
+          )}
+          {notifPerm === 'default' && (
+            <Button variant="secondary" size="sm" onClick={requestNotif}>
+              {t('settings.notificationsRequest')}
+            </Button>
+          )}
+        </div>
+      </SettingsSection>
+
+        </>
+      )}
+
       {/* -------------------------------------------------- Data */}
       <SettingsSection title={t('settings.section.data')}>
-        <a href="#/history" className="flex items-center justify-between rounded-xl py-2 text-sm font-medium">
-          {t('settings.history')}
-          <span className="text-muted" aria-hidden="true">›</span>
-        </a>
         <div className="space-y-3">
           <div>
             <Button variant="secondary" size="sm" onClick={doExport}>
@@ -398,15 +417,8 @@ export function Settings() {
         </div>
       </SettingsSection>
 
-      {/* -------------------------------------------------- About */}
-      <SettingsSection title={t('settings.section.about')}>
-        <p className="text-sm">{t('about.tagline')}</p>
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted">{t('about.version', { v: APP_VERSION })}</p>
-          {!isNativeApp && <UpdateButton />}
-        </div>
-        <About />
-      </SettingsSection>
+        </>
+      )}
 
       <Sheet open={wallpaperOpen} onClose={() => setWallpaperOpen(false)} title={t('wallpaper.title')}>
         <WallpaperPicker />

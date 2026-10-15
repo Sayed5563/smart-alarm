@@ -3,25 +3,18 @@
 export const en = {
   'app.name': 'Smart Alarm',
 
-  'nav.home': 'Home',
   'nav.alarms': 'Alarms',
   'nav.timer': 'Timer',
   'nav.history': 'History',
   'nav.settings': 'Settings',
 
   'home.nextAlarm': 'Next alarm',
-  'home.noAlarms': 'No upcoming alarms',
-  'home.noAlarmsHint': 'Add an alarm to get started',
   'home.in': 'in {time}',
   'home.quickSet': 'Quick set',
-  'home.recent': 'Recent alarms',
-  'home.addAlarm': 'Add alarm',
   'home.enableSound': 'Enable alarm sounds',
   'home.enableSoundBody':
     'Browsers block audio until you interact with the page. Tap once to let alarms play sound.',
   'home.soundEnabled': 'Alarm sounds enabled',
-  'home.testAlarm': 'Test alarm',
-
   'quick.5': '+5 min',
   'quick.10': '+10 min',
   'quick.15': '+15 min',
@@ -29,15 +22,10 @@ export const en = {
 
   'timer.title': 'Timer',
   'timer.start': 'Start',
-  'timer.running': 'Timer running',
   'timer.cancel': 'Cancel',
-  'timer.5': '5 min',
-  'timer.10': '10 min',
-  'timer.30': '30 min',
   'timer.custom': 'Custom',
   'timer.ringsAt': 'Rings at {time}',
   'timer.customTitle': 'Custom timer',
-  'timer.hm': '{h} h {m} min',
   'timer.minutesShort': '{n} min',
   'timer.hour': '1 hour',
 
@@ -64,7 +52,6 @@ export const en = {
   'editor.save': 'Save',
   'editor.cancel': 'Cancel',
   'editor.more': 'More options',
-  'editor.test': 'Test this alarm',
   'editor.preview': 'Preview',
   'editor.deleteAlarm': 'Delete alarm',
   'editor.section.basic': 'Basic',
@@ -76,7 +63,6 @@ export const en = {
   'editor.label': 'Label',
   'editor.labelPlaceholder': 'e.g. Morning workout',
   'editor.category': 'Category',
-  'editor.enabled': 'Enabled',
   'editor.sound': 'Alarm sound',
   'editor.volume': 'Volume',
   'editor.fadeIn': 'Fade-in',
@@ -253,15 +239,7 @@ export const en = {
   'settings.accent.blue': 'Blue',
   'settings.accent.purple': 'Purple',
   'settings.accent.green': 'Green',
-  'settings.clockType': 'Clock style',
-  'settings.clockType.digital': 'Digital',
-  'settings.clockType.analog': 'Analog',
-  'settings.clockFont': 'Clock font',
-  'settings.clockFont.classic': 'Classic',
-  'settings.clockFont.digital': 'Digital',
-  'settings.clockFont.minimal': 'Minimal',
   'settings.hour24': '24-hour time',
-  'settings.showSeconds': 'Show seconds',
   'settings.reducedMotion': 'Reduce motion',
   'settings.wallpaper': 'Wallpaper',
 
@@ -365,6 +343,9 @@ export const en = {
   'common.off': 'Off',
   'common.enable': 'Enable',
   'common.back': 'Back',
+  'settings.advanced': 'Advanced',
+  'settings.advancedHint': 'Wake-up tasks, quiet hours, profiles, history, look, backup',
+  'settings.section.look': 'Look',
   'common.confirm': 'Confirm',
 } as const;
 

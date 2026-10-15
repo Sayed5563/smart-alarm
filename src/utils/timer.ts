@@ -15,3 +15,9 @@ export function timerView(
   const progress = durationMs && durationMs > 0 ? Math.min(1, Math.max(0, left / durationMs)) : 1;
   return { label, progress };
 }
+
+/** "20 min", "1 h", "2 h 5 min" — the custom timer's Start label. */
+export function durationLabel(h: number, m: number): string {
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}

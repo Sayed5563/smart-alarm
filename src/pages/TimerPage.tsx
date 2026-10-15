@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { useT } from '@/i18n';
 import { Button, Sheet } from '@/components/ui';
 import { TimePicker } from '@/components/TimePicker';
-import { timerView } from '@/utils/timer';
+import { durationLabel, timerView } from '@/utils/timer';
 import { formatAlarmTime } from '@/utils/time';
 import { audioService } from '@/services';
 
@@ -23,7 +23,8 @@ export function TimerPage() {
   const [now, setNow] = useState(Date.now());
   const [custom, setCustom] = useState<{ h: number; m: number } | null>(null);
 
-  const running = endsAt != null && endsAt > now && !ringing;
+  // Only the timer's own ring hides the countdown, not some other alarm going off.
+  const running = endsAt != null && endsAt > now && ringing?.kind !== 'timer';
   useEffect(() => {
     if (endsAt == null) return;
     const id = window.setInterval(() => setNow(Date.now()), 250);
@@ -79,7 +80,7 @@ export function TimerPage() {
               key={m}
               type="button"
               onClick={() => start(m * 60_000)}
-              className="glass flex h-20 items-center justify-center rounded-2xl text-lg font-semibold transition active:scale-[0.97]"
+              className="flex h-20 items-center justify-center rounded-2xl border border-hairline bg-tile text-lg font-semibold transition active:scale-[0.97]"
             >
               {m === 60 ? t('timer.hour') : t('timer.minutesShort', { n: m })}
             </button>
@@ -109,7 +110,7 @@ export function TimerPage() {
                 setCustom(null);
               }}
             >
-              {t('timer.start')} · {t('timer.hm', { h: custom.h, m: custom.m })}
+              {t('timer.start')} · {durationLabel(custom.h, custom.m)}
             </Button>
           }
         >

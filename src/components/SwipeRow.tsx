@@ -97,7 +97,7 @@ export function SwipeRow({
           transition: dragging ? 'none' : 'transform 0.22s var(--ease-out-soft)',
           touchAction: 'pan-y',
         }}
-        className="relative bg-surface"
+        className="relative bg-tile"
       >
         {children}
       </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { AlarmHistoryEntry } from '@/types';
 import { useStore } from '@/store/useStore';
 import { useT } from '@/i18n';
+import { PageHeader } from '@/components/PageHeader';
 import { Segmented, Card, Button, ConfirmDialog } from '@/components/ui';
 import { categoryIcon } from '@/data/categories';
 import { computeStats } from '@/utils/stats';
@@ -16,9 +17,7 @@ export function History() {
 
   return (
     <div className="space-y-4">
-      <header className="pt-6">
-        <h1 className="text-[1.7rem] font-semibold tracking-tight">{t('history.title')}</h1>
-      </header>
+      <PageHeader title={t('history.title')} back="advanced" />
 
       <Segmented
         value={tab}
@@ -32,7 +31,7 @@ export function History() {
       {tab === 'log' ? (
         <>
           {history.length === 0 ? (
-            <div className="glass rounded-card p-8 text-center text-muted">{t('history.empty')}</div>
+            <div className="rounded-card border border-hairline bg-tile p-8 text-center text-muted">{t('history.empty')}</div>
           ) : (
             <>
               <HistoryLog entries={history} />
@@ -166,7 +165,7 @@ function StatsView({ entries }: { entries: AlarmHistoryEntry[] }) {
   const s = useMemo(() => computeStats(entries), [entries]);
 
   if (entries.filter((e) => !e.wasTest && !e.wasTimer).length === 0) {
-    return <div className="glass rounded-card p-8 text-center text-muted">{t('stats.none')}</div>;
+    return <div className="rounded-card border border-hairline bg-tile p-8 text-center text-muted">{t('stats.none')}</div>;
   }
 
   const rows: { label: string; big?: boolean }[] = [

@@ -254,7 +254,8 @@ export default function App() {
           {route === 'alarms' && <Alarms />}
           {route === 'timer' && <TimerPage />}
           {route === 'history' && <History />}
-          {route === 'settings' && <Settings />}
+          {route === 'settings' && <Settings view="main" />}
+          {route === 'advanced' && <Settings view="advanced" />}
         </main>
         <Navigation route={route} onNavigate={navigate} />
       </div>
