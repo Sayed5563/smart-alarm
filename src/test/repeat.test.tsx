@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { daysToRepeat } from '@/utils/repeat';
+import { DayCircles } from '@/components/DayCircles';
 
 describe('daysToRepeat', () => {
   it('no days is a one-off', () => {
@@ -12,5 +14,14 @@ describe('daysToRepeat', () => {
   });
   it('anything else is custom, sorted and de-duplicated', () => {
     expect(daysToRepeat([5, 1, 3, 1])).toEqual({ repeat: 'custom', customDays: [1, 3, 5] });
+  });
+});
+
+describe('DayCircles', () => {
+  it('turning Saturday off on an every-day alarm leaves Sun–Fri custom', () => {
+    const onChange = vi.fn();
+    render(<DayCircles repeat="daily" customDays={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sat' }));
+    expect(onChange).toHaveBeenCalledWith('custom', [0, 1, 2, 3, 4, 5]);
   });
 });
