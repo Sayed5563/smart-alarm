@@ -44,8 +44,11 @@ function parse(): Route {
  */
 const stack: Route[] = [];
 let replacing = false;
+/** A pop is in flight: history.back() is async, so ignore a second tap until it lands. */
+let backPending = false;
 
-function track(r: Route) {
+export function trackRoute(r: Route) {
+  backPending = false;
   if (replacing) {
     replacing = false;
     stack[Math.max(0, stack.length - 1)] = r;
@@ -63,8 +66,10 @@ export function backAction(prev: Route | null, parent: Route): 'pop' | 'replace'
 
 /** A sub-page's back arrow: up to `parent`, without growing the history. */
 export function goBack(parent: Route) {
+  if (backPending) return;
   const prev = stack.length > 1 ? stack[stack.length - 2] : null;
   if (backAction(prev, parent) === 'pop') {
+    backPending = true;
     window.history.back();
   } else {
     replacing = true;
@@ -78,10 +83,10 @@ export function useHashRoute(): [Route, (r: Route) => void] {
   const [route, setRoute] = useState<Route>(parse);
 
   useEffect(() => {
-    track(parse());
+    trackRoute(parse());
     const onHash = () => {
       const r = parse();
-      track(r);
+      trackRoute(r);
       setRoute(r);
     };
     window.addEventListener('hashchange', onHash);

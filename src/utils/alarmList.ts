@@ -17,3 +17,8 @@ export function isSpent(
 ): boolean {
   return a.repeat === 'once' && !!a.lastFiredKey && !((a.snoozedUntil ?? 0) > now);
 }
+
+/** The header line for what rings next — say so when it's a pre-alarm or a snooze. */
+export function nextInKey(kind: 'alarm' | 'pre-alarm' | 'snooze'): 'alarms.nextIn' | 'alarms.preAlarmIn' | 'alarms.snoozeIn' {
+  return kind === 'pre-alarm' ? 'alarms.preAlarmIn' : kind === 'snooze' ? 'alarms.snoozeIn' : 'alarms.nextIn';
+}

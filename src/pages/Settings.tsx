@@ -452,7 +452,7 @@ export function Settings({ view }: { view: 'main' | 'advanced' }) {
 function SettingsSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-2.5 px-1 text-[13px] font-medium text-muted">{title}</h2>
+      <h2 className="on-wallpaper mb-2.5 px-1 text-[13px] font-medium text-muted">{title}</h2>
       <Card className="divide-y divide-hairline !py-1">{children}</Card>
     </section>
   );
