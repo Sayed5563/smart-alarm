@@ -5,6 +5,7 @@ export const en = {
 
   'nav.home': 'Home',
   'nav.alarms': 'Alarms',
+  'nav.timer': 'Timer',
   'nav.history': 'History',
   'nav.settings': 'Settings',
 
@@ -36,8 +37,15 @@ export const en = {
   'timer.custom': 'Custom',
 
   'alarms.title': 'Alarms',
+  'alarms.untitled': 'Alarm',
+  'alarms.nextIn': 'Next in {time}',
+  'alarms.noneOn': 'No alarms on',
+  'alarms.deleted': 'Alarm deleted',
+  'alarms.newAlarm': 'New alarm',
+  'common.undo': 'Undo',
+  'settings.history': 'History',
   'alarms.empty': 'No alarms yet',
-  'alarms.emptyHint': 'Tap “Add alarm” to create your first one',
+  'alarms.emptyHint': 'Tap + to add your first alarm',
   'alarms.add': 'Add alarm',
   'alarms.on': 'On',
   'alarms.off': 'Off',

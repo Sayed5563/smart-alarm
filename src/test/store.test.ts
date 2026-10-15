@@ -29,12 +29,64 @@ function reset() {
     customWallpapers: [],
     hasCustomWallpaper: false,
     ringing: null,
+    lastDeleted: null,
   });
 }
 
 beforeEach(reset);
 
 describe('alarm CRUD', () => {
+  it('undoDelete restores the alarm and its profile membership', () => {
+    const a = useStore.getState().addAlarm({ label: 'Gym' });
+    const p = useStore.getState().addProfile('Work');
+    useStore.getState().setProfileAlarms(p.id, [a.id]);
+    useStore.getState().deleteAlarm(a.id, { undoable: true });
+    expect(useStore.getState().alarms).toHaveLength(0);
+
+    useStore.getState().undoDelete(a.id);
+    expect(useStore.getState().alarms.map((x) => x.label)).toEqual(['Gym']);
+    expect(useStore.getState().profiles[0].activeAlarmIds).toEqual([a.id]);
+    expect(useStore.getState().lastDeleted).toBeNull();
+  });
+
+  it('undoDelete only restores the most recent deletion, once', () => {
+    const a = useStore.getState().addAlarm({ label: 'A' });
+    const b = useStore.getState().addAlarm({ label: 'B' });
+    useStore.getState().deleteAlarm(a.id, { undoable: true });
+    useStore.getState().deleteAlarm(b.id, { undoable: true });
+    useStore.getState().undoDelete(b.id);
+    useStore.getState().undoDelete(b.id);
+    expect(useStore.getState().alarms.map((x) => x.label)).toEqual(['B']);
+  });
+
+  it("a stale Undo for an earlier alarm never restores a different one", () => {
+    const a = useStore.getState().addAlarm({ label: 'A' });
+    const b = useStore.getState().addAlarm({ label: 'B' });
+    useStore.getState().deleteAlarm(a.id, { undoable: true });
+    useStore.getState().deleteAlarm(b.id, { undoable: true });
+    useStore.getState().undoDelete(a.id);
+    expect(useStore.getState().alarms).toHaveLength(0);
+  });
+
+  it('cancelling a new draft does not displace the Undo slot', () => {
+    const a = useStore.getState().addAlarm({ label: 'A' });
+    const draft = useStore.getState().addAlarm({ label: '' });
+    useStore.getState().deleteAlarm(a.id, { undoable: true });
+    useStore.getState().deleteAlarm(draft.id); // editor Cancel on a new alarm
+    useStore.getState().undoDelete(a.id);
+    expect(useStore.getState().alarms.map((x) => x.label)).toEqual(['A']);
+  });
+
+  it('undoDelete does nothing once the 5 s window has passed', () => {
+    vi.useFakeTimers();
+    const a = useStore.getState().addAlarm();
+    useStore.getState().deleteAlarm(a.id, { undoable: true });
+    vi.advanceTimersByTime(5_001);
+    useStore.getState().undoDelete(a.id);
+    expect(useStore.getState().alarms).toHaveLength(0);
+    vi.useRealTimers();
+  });
+
   it('adds an alarm with defaults from settings', () => {
     const a = useStore.getState().addAlarm();
     expect(useStore.getState().alarms).toHaveLength(1);

@@ -20,6 +20,7 @@ import { clamp } from '@/utils/time';
 import { storageService, audioService } from '@/services';
 
 const STORAGE_KEY = 'smart-alarm:v1';
+const UNDO_WINDOW_MS = 5_000;
 const HISTORY_LIMIT = 250;
 
 export interface StoreState {
@@ -37,12 +38,17 @@ export interface StoreState {
 
   /** In-memory only. */
   ringing: RingingSession | null;
-  lastToast: { id: number; message: string } | null;
+  lastToast: { id: number; message: string; action?: { label: string; run: () => void } } | null;
+  /** In-memory only: the last deleted alarm, for the Undo toast (5 s). */
+  lastDeleted: { alarm: Alarm; profileIds: ID[]; at: number } | null;
 
   // ---- alarms
   addAlarm: (partial?: Partial<Alarm>) => Alarm;
   updateAlarm: (id: ID, patch: Partial<Alarm>) => void;
-  deleteAlarm: (id: ID) => void;
+  /** `undoable`: a user delete that shows the Undo toast. Discarding a new draft isn't. */
+  deleteAlarm: (id: ID, opts?: { undoable?: boolean }) => void;
+  /** Restores `id` only if it's still the last undoable deletion, within 5 s. */
+  undoDelete: (id: ID) => void;
   toggleAlarm: (id: ID, enabled?: boolean) => void;
   duplicateAlarm: (id: ID) => void;
   quickSet: (minutesFromNow: number) => Alarm;
@@ -84,7 +90,7 @@ export interface StoreState {
   exportBundle: () => ExportBundle;
   importBundle: (bundle: ExportBundle) => void;
   resetAll: () => Promise<void>;
-  toast: (message: string) => void;
+  toast: (message: string, action?: { label: string; run: () => void }) => void;
   dismissToast: () => void;
 }
 
@@ -105,6 +111,7 @@ export const useStore = create<StoreState>()(
       customWallpapers: [],
       hasCustomWallpaper: false,
       timerEndsAt: null,
+      lastDeleted: null,
       ringing: null,
       lastToast: null,
 
@@ -143,15 +150,41 @@ export const useStore = create<StoreState>()(
           }),
         })),
 
-      deleteAlarm: (id) =>
-        set((s) => ({
-          alarms: s.alarms.filter((a) => a.id !== id),
-          profiles: s.profiles.map((p) => ({
-            ...p,
-            activeAlarmIds: p.activeAlarmIds.filter((x) => x !== id),
-          })),
-          ringing: s.ringing?.alarmId === id ? null : s.ringing,
-        })),
+      deleteAlarm: (id, opts) =>
+        set((s) => {
+          const alarm = s.alarms.find((a) => a.id === id);
+          return {
+            alarms: s.alarms.filter((a) => a.id !== id),
+            profiles: s.profiles.map((p) => ({
+              ...p,
+              activeAlarmIds: p.activeAlarmIds.filter((x) => x !== id),
+            })),
+            ringing: s.ringing?.alarmId === id ? null : s.ringing,
+            lastDeleted: alarm && opts?.undoable
+              ? {
+                  alarm,
+                  profileIds: s.profiles.filter((p) => p.activeAlarmIds.includes(id)).map((p) => p.id),
+                  at: Date.now(),
+                }
+              : s.lastDeleted,
+          };
+        }),
+
+      undoDelete: (id) =>
+        set((s) => {
+          const d = s.lastDeleted;
+          if (!d || d.alarm.id !== id) return {};
+          if (Date.now() - d.at > UNDO_WINDOW_MS) return { lastDeleted: null };
+          return {
+            alarms: [...s.alarms, d.alarm],
+            profiles: s.profiles.map((p) =>
+              d.profileIds.includes(p.id)
+                ? { ...p, activeAlarmIds: [...p.activeAlarmIds, d.alarm.id] }
+                : p,
+            ),
+            lastDeleted: null,
+          };
+        }),
 
       toggleAlarm: (id, enabled) =>
         set((s) => ({
@@ -429,7 +462,7 @@ export const useStore = create<StoreState>()(
         });
       },
 
-      toast: (message) => set({ lastToast: { id: Date.now(), message } }),
+      toast: (message, action) => set({ lastToast: { id: Date.now(), message, action } }),
       dismissToast: () => set({ lastToast: null }),
     }),
     {
@@ -468,12 +501,13 @@ export const useStore = create<StoreState>()(
           ...p,
           settings: { ...cloneDefaults(), ...(p.settings ?? {}) },
           alarms: Array.isArray(p.alarms)
-            ? p.alarms.map((a) => sanitizeAlarm(a, { ...base, id: newId() }))
+            ? p.alarms.map((a) => sanitizeAlarm(a, { ...base, id: newId() }, { keepRuntimeState: true }))
             : [],
           history: Array.isArray(p.history) ? p.history.slice(0, HISTORY_LIMIT) : [],
           profiles: Array.isArray(p.profiles) ? p.profiles : [],
           ringing: null,
           lastToast: null,
+          lastDeleted: null,
         };
       },
     },

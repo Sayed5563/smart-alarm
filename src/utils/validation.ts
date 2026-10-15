@@ -3,7 +3,17 @@ import { MAX_ALERT_DURATION_MINUTES } from '@/data/defaults';
 import { clamp } from './time';
 
 /** Coerce a possibly-corrupt alarm object into a valid one. Never throws. */
-export function sanitizeAlarm(raw: unknown, fallback: Alarm): Alarm {
+/**
+ * `keepRuntimeState`: restoring the app's own saved state, so keep the spent
+ * marker and an active snooze. Wiping them on every start re-armed a once-alarm
+ * that had already rung, and dropped a snooze the moment the app was opened.
+ * An imported backup (the default) starts both fresh.
+ */
+export function sanitizeAlarm(
+  raw: unknown,
+  fallback: Alarm,
+  opts: { keepRuntimeState?: boolean } = {},
+): Alarm {
   const a = (raw ?? {}) as Partial<Alarm>;
   const num = (v: unknown, def: number) => (typeof v === 'number' && Number.isFinite(v) ? v : def);
   const fadeIn = [0, 10, 30, 60, 300].includes(num(a.fadeInSeconds, fallback.fadeInSeconds))
@@ -57,8 +67,10 @@ export function sanitizeAlarm(raw: unknown, fallback: Alarm): Alarm {
       rounds: clamp(Math.trunc(num(a.wakeUpTask?.rounds, 1)), 1, 5),
       qrPayload: typeof a.wakeUpTask?.qrPayload === 'string' ? a.wakeUpTask.qrPayload : undefined,
     },
-    snoozedUntil: undefined,
-    lastFiredKey: undefined,
+    snoozedUntil:
+      opts.keepRuntimeState && typeof a.snoozedUntil === 'number' ? a.snoozedUntil : undefined,
+    lastFiredKey:
+      opts.keepRuntimeState && typeof a.lastFiredKey === 'string' ? a.lastFiredKey : undefined,
   };
 }
 

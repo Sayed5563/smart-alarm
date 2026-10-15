@@ -1,10 +1,13 @@
-import type { Route } from '@/hooks/useHashRoute';
+import { NAV_TABS, type Route } from '@/hooks/useHashRoute';
 import { useT } from '@/i18n';
 import { cx } from './ui';
 
-const ICONS: Record<Route, JSX.Element> = {
-  home: (
-    <path d="M3 11.5 12 4l9 7.5M5 10v10h14V10" />
+const ICONS: Partial<Record<Route, JSX.Element>> = {
+  timer: (
+    <>
+      <circle cx="12" cy="14" r="7" />
+      <path d="M12 14V10.5M10 3h4M18.5 7.5l1.5-1.5" />
+    </>
   ),
   alarms: (
     <>
@@ -28,7 +31,7 @@ const ICONS: Record<Route, JSX.Element> = {
 
 export function Navigation({ route, onNavigate }: { route: Route; onNavigate: (r: Route) => void }) {
   const t = useT();
-  const items: Route[] = ['home', 'alarms', 'history', 'settings'];
+  const items = NAV_TABS;
   return (
     <div className="sticky bottom-0 z-30 mx-auto w-full max-w-md px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
       <nav
