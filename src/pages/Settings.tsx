@@ -339,6 +339,10 @@ export function Settings() {
 
       {/* -------------------------------------------------- Data */}
       <SettingsSection title={t('settings.section.data')}>
+        <a href="#/history" className="flex items-center justify-between rounded-xl py-2 text-sm font-medium">
+          {t('settings.history')}
+          <span className="text-muted" aria-hidden="true">›</span>
+        </a>
         <div className="space-y-3">
           <div>
             <Button variant="secondary" size="sm" onClick={doExport}>

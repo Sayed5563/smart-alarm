@@ -10,7 +10,6 @@ import {
   notificationService,
   storageService,
   closeNativeAlarmScreen,
-  nativeAlarmScheduler,
   type DueEvent,
 } from '@/services';
 import { upcomingEvents } from '@/utils/schedule';
@@ -19,7 +18,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { categoryIcon } from '@/data/categories';
 import { Navigation } from '@/components/Navigation';
 import { AlarmRinging } from '@/components/AlarmRinging';
-import { Home } from '@/pages/Home';
+import { TimerPage } from '@/pages/TimerPage';
 import { Alarms } from '@/pages/Alarms';
 import { History } from '@/pages/History';
 import { Settings } from '@/pages/Settings';
@@ -244,28 +243,6 @@ export default function App() {
     };
   }, [alarms, settings, i18n]);
 
-  /* -------------------------------------------------------------- test alarm */
-  const runTest = () => {
-    if (useStore.getState().ringing) return;
-    const test = makeAlarm(settings, {
-      label: i18n.t('ringing.test'),
-      category: 'personal',
-      volume: Math.max(0.4, settings.defaults.volume),
-      fadeInSeconds: 10,
-      vibration: settings.defaults.vibration === 'off' ? 'medium' : settings.defaults.vibration,
-      wakeUpTask: { type: 'math', difficulty: 'easy', rounds: 1 },
-      afterStop: {
-        enabled: true,
-        soundId: 'builtin:bright-bells',
-        volume: 0.5,
-        behavior: 'stoppable',
-      },
-      strongAlert: { enabled: true, maxDurationMinutes: 5 },
-    });
-    if (isNativeApp) void nativeAlarmScheduler.test(test);
-    else beginRing(test, 'test');
-  };
-
   return (
     <I18nContext.Provider value={i18n}>
       <div className="wallpaper-layer" />
@@ -274,8 +251,8 @@ export default function App() {
 
       <div className="mx-auto flex min-h-full max-w-md flex-col">
         <main className="flex-1 px-4 pb-24">
-          {route === 'home' && <Home onAddAlarm={() => navigate('alarms')} onTest={runTest} />}
           {route === 'alarms' && <Alarms />}
+          {route === 'timer' && <TimerPage />}
           {route === 'history' && <History />}
           {route === 'settings' && <Settings />}
         </main>
@@ -283,24 +260,43 @@ export default function App() {
       </div>
 
       {ringing && <AlarmRinging />}
-      {lastToast?.message && <Toast key={lastToast.id} message={lastToast.message} />}
+      {lastToast?.message && (
+        <Toast key={lastToast.id} message={lastToast.message} action={lastToast.action} />
+      )}
     </I18nContext.Provider>
   );
 }
 
-function Toast({ message }: { message: string }) {
+function Toast({
+  message,
+  action,
+}: {
+  message: string;
+  action?: { label: string; run: () => void };
+}) {
   const dismiss = useStore((s) => s.dismissToast);
   useEffect(() => {
-    const t = window.setTimeout(dismiss, 2600);
+    const t = window.setTimeout(dismiss, action ? 5000 : 2600);
     return () => window.clearTimeout(t);
-  }, [dismiss]);
+  }, [dismiss, action]);
   return (
     <div
       role="status"
-      className="toast-in glass fixed inset-x-0 bottom-[5.5rem] z-40 mx-auto flex w-fit max-w-[88vw] items-center gap-2 rounded-pill py-2.5 pl-3 pr-4 text-sm font-medium"
+      className="toast-in glass fixed inset-x-0 bottom-[5.5rem] z-40 mx-auto flex w-fit max-w-[88vw] items-center gap-3 rounded-pill py-2 pl-4 pr-2 text-sm font-medium"
     >
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
-      {message}
+      <span>{message}</span>
+      {action && (
+        <button
+          type="button"
+          onClick={() => {
+            action.run();
+            dismiss();
+          }}
+          className="rounded-pill px-3 py-1.5 font-semibold text-accent hover:bg-surface-2"
+        >
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }
