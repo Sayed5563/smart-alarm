@@ -64,15 +64,16 @@ export function SwipeRow({
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      <button
-        type="button"
-        onClick={onDelete}
-        tabIndex={offset === 0 ? -1 : 0}
-        aria-hidden={offset === 0}
-        className="absolute inset-y-0 right-0 w-[88px] bg-danger text-sm font-semibold text-white"
-      >
-        {deleteLabel}
-      </button>
+      {/* Only while open: rows are translucent, so a resting button would tint every row red. */}
+      {offset < 0 && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="absolute inset-y-0 right-0 w-[88px] bg-danger text-sm font-semibold text-white"
+        >
+          {deleteLabel}
+        </button>
+      )}
       <div
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

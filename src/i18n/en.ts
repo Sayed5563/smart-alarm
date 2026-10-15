@@ -37,6 +37,7 @@ export const en = {
   'timer.custom': 'Custom',
 
   'alarms.title': 'Alarms',
+  'alarms.untitled': 'Alarm',
   'alarms.empty': 'No alarms yet',
   'alarms.emptyHint': 'Tap “Add alarm” to create your first one',
   'alarms.add': 'Add alarm',
