@@ -365,6 +365,7 @@ export const en = {
   'common.off': 'Off',
   'common.enable': 'Enable',
   'common.back': 'Back',
+  'settings.advanced': 'Advanced',
   'common.confirm': 'Confirm',
 } as const;
 
