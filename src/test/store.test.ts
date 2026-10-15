@@ -36,6 +36,18 @@ function reset() {
 beforeEach(reset);
 
 describe('alarm CRUD', () => {
+  it('startTimer records the end and the length; cancel clears both', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    useStore.getState().startTimer(90_000);
+    expect(useStore.getState().timerEndsAt).toBe(1_090_000);
+    expect(useStore.getState().timerDurationMs).toBe(90_000);
+    useStore.getState().cancelTimer();
+    expect(useStore.getState().timerEndsAt).toBeNull();
+    expect(useStore.getState().timerDurationMs).toBeNull();
+    vi.useRealTimers();
+  });
+
   it('undoDelete restores the alarm and its profile membership', () => {
     const a = useStore.getState().addAlarm({ label: 'Gym' });
     const p = useStore.getState().addProfile('Work');

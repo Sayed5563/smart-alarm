@@ -35,6 +35,8 @@ export interface StoreState {
   /** When the running timer ends (epoch ms). Persisted, so it survives leaving
    *  the Home screen, the app being closed, and (natively) the phone sleeping. */
   timerEndsAt: number | null;
+  /** The running timer's full length, for the countdown ring. */
+  timerDurationMs: number | null;
 
   /** In-memory only. */
   ringing: RingingSession | null;
@@ -52,7 +54,7 @@ export interface StoreState {
   toggleAlarm: (id: ID, enabled?: boolean) => void;
   duplicateAlarm: (id: ID) => void;
   quickSet: (minutesFromNow: number) => Alarm;
-  startTimer: (minutes: number) => void;
+  startTimer: (ms: number) => void;
   cancelTimer: () => void;
 
   // ---- settings
@@ -111,6 +113,7 @@ export const useStore = create<StoreState>()(
       customWallpapers: [],
       hasCustomWallpaper: false,
       timerEndsAt: null,
+      timerDurationMs: null,
       lastDeleted: null,
       ringing: null,
       lastToast: null,
@@ -209,8 +212,8 @@ export const useStore = create<StoreState>()(
         });
       },
 
-      startTimer: (minutes) => set({ timerEndsAt: Date.now() + minutes * 60_000 }),
-      cancelTimer: () => set({ timerEndsAt: null }),
+      startTimer: (ms) => set({ timerEndsAt: Date.now() + ms, timerDurationMs: ms }),
+      cancelTimer: () => set({ timerEndsAt: null, timerDurationMs: null }),
 
       quickSet: (minutesFromNow) => {
         const t = new Date(Date.now() + minutesFromNow * 60_000);
@@ -492,6 +495,7 @@ export const useStore = create<StoreState>()(
         customWallpapers: s.customWallpapers,
         hasCustomWallpaper: s.hasCustomWallpaper,
         timerEndsAt: s.timerEndsAt,
+        timerDurationMs: s.timerDurationMs,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<StoreState>;

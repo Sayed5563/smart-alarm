@@ -58,7 +58,7 @@ export function Timer() {
 
   const start = (mins: number) => {
     if (!audioService.isUnlocked()) void audioService.unlock();
-    startTimer(mins);
+    startTimer(mins * 60_000);
   };
 
   const running = target != null && target > Date.now() && !ringing;
