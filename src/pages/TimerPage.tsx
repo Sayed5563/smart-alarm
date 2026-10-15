@@ -80,7 +80,7 @@ export function TimerPage() {
               key={m}
               type="button"
               onClick={() => start(m * 60_000)}
-              className="flex h-20 items-center justify-center rounded-2xl border border-hairline bg-surface text-lg font-semibold transition active:scale-[0.97]"
+              className="flex h-20 items-center justify-center rounded-2xl border border-hairline bg-tile text-lg font-semibold transition active:scale-[0.97]"
             >
               {m === 60 ? t('timer.hour') : t('timer.minutesShort', { n: m })}
             </button>

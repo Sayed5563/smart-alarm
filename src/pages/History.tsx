@@ -31,7 +31,7 @@ export function History() {
       {tab === 'log' ? (
         <>
           {history.length === 0 ? (
-            <div className="rounded-card border border-hairline bg-surface p-8 text-center text-muted">{t('history.empty')}</div>
+            <div className="rounded-card border border-hairline bg-tile p-8 text-center text-muted">{t('history.empty')}</div>
           ) : (
             <>
               <HistoryLog entries={history} />
@@ -165,7 +165,7 @@ function StatsView({ entries }: { entries: AlarmHistoryEntry[] }) {
   const s = useMemo(() => computeStats(entries), [entries]);
 
   if (entries.filter((e) => !e.wasTest && !e.wasTimer).length === 0) {
-    return <div className="rounded-card border border-hairline bg-surface p-8 text-center text-muted">{t('stats.none')}</div>;
+    return <div className="rounded-card border border-hairline bg-tile p-8 text-center text-muted">{t('stats.none')}</div>;
   }
 
   const rows: { label: string; big?: boolean }[] = [
