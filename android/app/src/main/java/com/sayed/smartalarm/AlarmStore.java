@@ -38,6 +38,14 @@ final class AlarmStore {
     int snoozeMinutes;
     /** Stop opens the app's wake-up task instead of just stopping. */
     boolean hasTask;
+    /** A repeating alarm's weekly slot: the receiver re-arms it 7 days on. */
+    boolean repeating;
+    /** The alarm's own sound (key under AlarmClockPlugin.soundFile), or "" for the bundled tone. */
+    String ringSound;
+    int ringVolume = 100;  // 0..100
+    int fadeIn;            // seconds
+    /** "off" | "short" | "medium" | "strong", or "" for the original strong pattern. */
+    String vibration;
     /** After-stop sound: file key under AlarmClockPlugin.afterSoundFile, or "" for none. */
     String afterSound;
     int afterVolume;       // 0..100
@@ -57,6 +65,11 @@ final class AlarmStore {
       o.put("firedKey", firedKey == null ? "" : firedKey);
       o.put("snoozeMinutes", snoozeMinutes);
       o.put("hasTask", hasTask);
+      o.put("repeating", repeating);
+      o.put("ringSound", ringSound == null ? "" : ringSound);
+      o.put("ringVolume", ringVolume);
+      o.put("fadeIn", fadeIn);
+      o.put("vibration", vibration == null ? "" : vibration);
       o.put("afterSound", afterSound == null ? "" : afterSound);
       o.put("afterVolume", afterVolume);
       o.put("afterMustFinish", afterMustFinish);
@@ -75,6 +88,11 @@ final class AlarmStore {
       e.firedKey = o.optString("firedKey");
       e.snoozeMinutes = o.optInt("snoozeMinutes");
       e.hasTask = o.optBoolean("hasTask");
+      e.repeating = o.optBoolean("repeating");
+      e.ringSound = o.optString("ringSound");
+      e.ringVolume = o.optInt("ringVolume", 100);
+      e.fadeIn = o.optInt("fadeIn");
+      e.vibration = o.optString("vibration");
       e.afterSound = o.optString("afterSound");
       e.afterVolume = o.optInt("afterVolume", 60);
       e.afterMustFinish = o.optBoolean("afterMustFinish");

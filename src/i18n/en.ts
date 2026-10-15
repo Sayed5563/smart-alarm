@@ -223,6 +223,8 @@ export const en = {
   'settings.section.alarm': 'Alarm defaults',
   'settings.section.wake': 'Wake-up',
   'settings.section.notifications': 'Notifications',
+  'settings.section.permissions': 'Alarm permissions',
+  'settings.dndBodyNative': 'Alarms that fall inside this period stay silent unless they are allowed to ring through it.',
   'settings.section.quiet': 'Quiet hours',
   'settings.section.profiles': 'Profiles',
   'settings.section.data': 'Data',

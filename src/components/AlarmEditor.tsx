@@ -6,7 +6,7 @@ import { CATEGORIES } from '@/data/categories';
 import { getBuiltinSound } from '@/data/sounds';
 import { MAX_ALERT_DURATION_MINUTES } from '@/data/defaults';
 import { clamp } from '@/utils/time';
-import { vibrationService } from '@/services';
+import { isNativeApp, nativeAlarmScheduler, vibrationService } from '@/services';
 import {
   Sheet,
   Button,
@@ -401,7 +401,9 @@ export function AlarmEditor({
         </Collapsible>
 
         <div className="flex flex-col items-center gap-1 pt-1">
-          <Button variant="secondary" size="sm" onClick={() => beginRing({ ...draft }, 'test')}>
+          <Button variant="secondary" size="sm" onClick={() =>
+              isNativeApp ? void nativeAlarmScheduler.test({ ...draft }) : beginRing({ ...draft }, 'test')
+            }>
             {t('editor.test')}
           </Button>
           {!isNew && (

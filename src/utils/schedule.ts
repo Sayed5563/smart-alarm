@@ -81,6 +81,10 @@ export function nextEvent(
  * its next `occurrencesPerAlarm` main occurrences plus their pre-alarms, and any
  * active snooze. Unlike `nextEventForAlarm` this returns the *set* to register,
  * because on a closed phone nothing re-runs `sync()` between fires.
+ *
+ * The default covers one full week, so every weekly slot of a repeating alarm
+ * is armed once: the native receiver re-arms each fired slot 7 days on, which
+ * keeps it ringing indefinitely without the app ever being opened.
  */
 export function scheduleSet(
   alarms: Alarm[],
@@ -88,8 +92,8 @@ export function scheduleSet(
   activeAlarmIds: string[] | null,
   now: number,
   opts: { horizonMs: number; occurrencesPerAlarm: number } = {
-    horizonMs: 14 * DAY_MS,
-    occurrencesPerAlarm: 3,
+    horizonMs: 7 * DAY_MS,
+    occurrencesPerAlarm: 7,
   },
 ): ScheduledEvent[] {
   const out: ScheduledEvent[] = [];

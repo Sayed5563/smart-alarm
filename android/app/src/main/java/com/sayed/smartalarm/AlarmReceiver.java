@@ -24,7 +24,10 @@ public class AlarmReceiver extends BroadcastReceiver {
     wl.acquire(20_000);
 
     try {
+      AlarmStore.Entry fired = AlarmStore.get(context, id);
       AlarmStore.remove(context, id);
+      // Keep a repeating alarm going with the app closed: its next weekly slot.
+      if (fired != null && fired.repeating) AlarmScheduling.set(context, AlarmScheduling.nextWeek(fired));
 
       Intent svc = new Intent(context, AlarmService.class);
       svc.putExtras(intent);
