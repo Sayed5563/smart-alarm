@@ -1,4 +1,4 @@
-import { NAV_TABS, type Route } from '@/hooks/useHashRoute';
+import { NAV_TABS, tabFor, type Route } from '@/hooks/useHashRoute';
 import { useT } from '@/i18n';
 import { cx } from './ui';
 
@@ -39,7 +39,7 @@ export function Navigation({ route, onNavigate }: { route: Route; onNavigate: (r
         className="glass flex items-stretch justify-around rounded-[1.25rem] px-1.5 py-1.5"
       >
         {items.map((r) => {
-          const active = route === r;
+          const active = tabFor(route) === r;
           return (
             <button
               key={r}

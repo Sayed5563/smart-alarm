@@ -1,14 +1,36 @@
 import { useEffect, useState } from 'react';
 
-export type Route = 'alarms' | 'timer' | 'settings' | 'history';
-const ROUTES: Route[] = ['alarms', 'timer', 'settings', 'history'];
-/** The bottom tabs. History is reached from Settings. */
+export type Route = 'alarms' | 'timer' | 'settings' | 'advanced' | 'history';
+/** The bottom tabs. Advanced and History live under Settings. */
 export const NAV_TABS: Route[] = ['alarms', 'timer', 'settings'];
 
-/** Unknown and legacy (#/home) hashes land on Alarms. */
+const PATH: Record<Route, string> = {
+  alarms: 'alarms',
+  timer: 'timer',
+  settings: 'settings',
+  advanced: 'settings/advanced',
+  history: 'settings/advanced/history',
+};
+
+export function routeHash(r: Route): string {
+  return `#/${PATH[r]}`;
+}
+
+/** Unknown and legacy hashes land somewhere sensible: #/home → Alarms, #/history → History. */
 export function parseRoute(hash: string): Route {
-  const h = hash.replace(/^#\/?/, '') as Route;
-  return ROUTES.includes(h) ? h : 'alarms';
+  const path = hash.replace(/^#\/?/, '').replace(/\/+$/, '');
+  if (path === 'history') return 'history';
+  return (Object.keys(PATH) as Route[]).find((r) => PATH[r] === path) ?? 'alarms';
+}
+
+/** The tab to light up: sub-pages belong to Settings. */
+export function tabFor(r: Route): Route {
+  return r === 'advanced' || r === 'history' ? 'settings' : r;
+}
+
+/** Where a sub-page's back link goes — always up a level, never "wherever the browser came from". */
+export function parentOf(r: Route): Route | null {
+  return r === 'history' ? 'advanced' : r === 'advanced' ? 'settings' : null;
 }
 
 function parse(): Route {
@@ -28,7 +50,7 @@ export function useHashRoute(): [Route, (r: Route) => void] {
   }, []);
 
   const navigate = (r: Route) => {
-    window.location.hash = `#/${r}`;
+    window.location.hash = routeHash(r);
   };
   return [route, navigate];
 }
