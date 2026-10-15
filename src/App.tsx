@@ -10,6 +10,7 @@ import {
   notificationService,
   storageService,
   closeNativeAlarmScreen,
+  nativeAlarmScheduler,
   type DueEvent,
 } from '@/services';
 import { upcomingEvents } from '@/utils/schedule';
@@ -140,22 +141,55 @@ export default function App() {
 
     scheduler.configure(() => {
       const s = useStore.getState();
-      return { alarms: s.alarms, settings: s.settings, activeAlarmIds: s.activeAlarmIds() };
+      return {
+        alarms: s.alarms,
+        settings: s.settings,
+        activeAlarmIds: s.activeAlarmIds(),
+        timerEndsAt: s.timerEndsAt,
+      };
     }, onDue);
     scheduler.start();
 
     // Only re-sync when something that affects scheduling actually changes —
     // not on every ringing-phase tick or toast.
     const unsub = useStore.subscribe(
-      (s) => [s.alarms, s.settings, s.activeProfileId, s.profiles] as const,
+      (s) => [s.alarms, s.settings, s.activeProfileId, s.profiles, s.timerEndsAt] as const,
       () => scheduler.sync(),
-      { equalityFn: (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3] },
+      { equalityFn: (a, b) => a.every((v, i) => v === b[i]) },
     );
     return () => {
       unsub();
       scheduler.stop();
     };
   }, [beginRing]);
+
+  /* Timer. Natively it's a real alarm (nativeAlarmScheduler); here we only
+     clear it once it's due. On the web it rings from here, whichever screen
+     is showing. */
+  const timerEndsAt = useStore((s) => s.timerEndsAt);
+  useEffect(() => {
+    if (timerEndsAt == null) return;
+    const id = window.setTimeout(() => {
+      const s = useStore.getState();
+      s.cancelTimer();
+      if (isNativeApp || Date.now() - timerEndsAt > 60_000) return; // missed long ago: don't ring late
+      const now = new Date();
+      s.beginRing(
+        makeAlarm(s.settings, {
+          label: i18n.t('timer.title'),
+          category: 'other',
+          hour: now.getHours(),
+          minute: now.getMinutes(),
+          repeat: 'once',
+          fadeInSeconds: 0,
+          wakeUpTask: { type: 'none', difficulty: 'easy', rounds: 1 },
+          strongAlert: { enabled: false, maxDurationMinutes: 5 },
+        }),
+        'timer',
+      );
+    }, Math.max(0, timerEndsAt - Date.now()));
+    return () => window.clearTimeout(id);
+  }, [timerEndsAt, i18n]);
 
   /* Drain the queue when the current alarm finishes. */
   useEffect(() => {
@@ -228,7 +262,8 @@ export default function App() {
       },
       strongAlert: { enabled: true, maxDurationMinutes: 5 },
     });
-    beginRing(test, 'test');
+    if (isNativeApp) void nativeAlarmScheduler.test(test);
+    else beginRing(test, 'test');
   };
 
   return (

@@ -114,8 +114,8 @@ public class AlarmService extends Service {
         "smartalarm:ringing");
     wakeLock.acquire(SAFETY_CAP_MS + 5000);
 
-    startSound(pre);
-    if (!pre) startVibration();
+    startSound(pre, intent);
+    if (!pre) startVibration(intent.getStringExtra(AlarmScheduling.EXTRA_VIBRATION));
 
     // One screen, locked or unlocked. Over a locked keyguard the full-screen
     // intent would launch it anyway; with the phone in use only this direct
@@ -137,7 +137,7 @@ public class AlarmService extends Service {
     if (src == null || "pre-alarm".equals(src.getStringExtra(AlarmScheduling.EXTRA_KIND))) return false;
     String key = src.getStringExtra(AlarmScheduling.EXTRA_AFTER_SOUND);
     if (key == null || key.isEmpty()) return false;
-    java.io.File f = AlarmClockPlugin.afterSoundFile(this, key);
+    java.io.File f = AlarmClockPlugin.soundFile(this, key);
     if (!f.exists()) return false;
     float volume = src.getIntExtra(AlarmScheduling.EXTRA_AFTER_VOLUME, 60) / 100f;
     boolean mustFinish = src.getBooleanExtra(AlarmScheduling.EXTRA_AFTER_MUST_FINISH, false);
@@ -180,6 +180,8 @@ public class AlarmService extends Service {
   }
 
   private void stopRingingSound() {
+    if (fadeStep != null) handler.removeCallbacks(fadeStep);
+    fadeStep = null;
     if (player != null) {
       try { player.stop(); } catch (Exception ignored) {}
       player.release();
@@ -193,7 +195,12 @@ public class AlarmService extends Service {
 
   // ---------------------------------------------------------------- sound
 
-  private void startSound(boolean quiet) {
+  /**
+   * The alarm's own sound at its own volume, fading in if it asks to. Falls
+   * back to the bundled tone if its file isn't there (not saved yet, or the
+   * app predates it), so an alarm is never silent for want of a file.
+   */
+  private void startSound(boolean quiet, Intent src) {
     try {
       AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
       if (audio != null && !quiet) {
@@ -205,21 +212,60 @@ public class AlarmService extends Service {
           .setUsage(AudioAttributes.USAGE_ALARM)
           .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
           .build());
-      player.setDataSource(this,
-          android.net.Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.alarm));
+      String key = src.getStringExtra(AlarmScheduling.EXTRA_RING_SOUND);
+      java.io.File own = key == null || key.isEmpty() ? null : AlarmClockPlugin.soundFile(this, key);
+      if (own != null && own.exists()) {
+        player.setDataSource(own.getPath());
+      } else {
+        player.setDataSource(this,
+            android.net.Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.alarm));
+      }
       player.setLooping(true);
-      if (quiet) player.setVolume(0.35f, 0.35f);
+      float target = quiet ? 0.35f : src.getIntExtra(AlarmScheduling.EXTRA_RING_VOLUME, 100) / 100f;
+      int fade = quiet ? 0 : src.getIntExtra(AlarmScheduling.EXTRA_FADE_IN, 0);
+      player.setVolume(fade > 0 ? 0.02f : target, fade > 0 ? 0.02f : target);
       player.prepare();
       player.start();
+      if (fade > 0) fadeIn(target, fade * 1000L);
     } catch (Exception e) {
       // sound is best-effort; the vibration + UI still fire
     }
   }
 
-  private void startVibration() {
+  private Runnable fadeStep;
+
+  private void fadeIn(float target, long durationMs) {
+    final long start = System.currentTimeMillis();
+    fadeStep = new Runnable() {
+      @Override
+      public void run() {
+        if (player == null) return;
+        float f = Math.min(1f, (System.currentTimeMillis() - start) / (float) durationMs);
+        float v = Math.max(0.02f, target * f);
+        try { player.setVolume(v, v); } catch (Exception ignored) { return; }
+        if (f < 1f) handler.postDelayed(this, 250);
+      }
+    };
+    handler.postDelayed(fadeStep, 250);
+  }
+
+  /** Same patterns as the web vibrationService, repeated with a pause between rounds. */
+  private static long[] vibrationPattern(String name) {
+    if (name == null) name = "";
+    switch (name) {
+      case "off": return null;
+      case "short": return new long[] {0, 200, 150, 200, 1200};
+      case "medium": return new long[] {0, 400, 200, 400, 200, 400, 1200};
+      case "strong": return new long[] {0, 700, 250, 700, 250, 700, 250, 700, 1200};
+      default: return new long[] {0, 600, 400, 600, 400, 600, 1200};
+    }
+  }
+
+  private void startVibration(String name) {
+    long[] pattern = vibrationPattern(name);
+    if (pattern == null) return;
     vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
     if (vibrator == null || !vibrator.hasVibrator()) return;
-    long[] pattern = {0, 600, 400, 600, 400, 600, 1200};
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
     } else {
@@ -274,7 +320,10 @@ public class AlarmService extends Service {
         .setContentIntent(full);
     if (!quiet) b.setFullScreenIntent(full, true);
 
-    if (!pre) {
+    String srcKind = src != null ? src.getStringExtra(AlarmScheduling.EXTRA_KIND) : null;
+    if ("timer".equals(srcKind) || "test".equals(srcKind)) {
+      b.addAction(0, "Stop", stop);
+    } else if (!pre) {
       b.addAction(0, "Stop", stop).addAction(0, "Snooze", snooze);
     } else {
       b.addAction(0, "Dismiss", stop);
@@ -362,6 +411,10 @@ public class AlarmService extends Service {
     e.snoozeMinutes = mins;
     e.hasTask = src.getBooleanExtra(AlarmActivity.EXTRA_HAS_TASK, false);
     e.afterSound = src.getStringExtra(AlarmScheduling.EXTRA_AFTER_SOUND);
+    e.ringSound = src.getStringExtra(AlarmScheduling.EXTRA_RING_SOUND);
+    e.ringVolume = src.getIntExtra(AlarmScheduling.EXTRA_RING_VOLUME, 100);
+    e.fadeIn = src.getIntExtra(AlarmScheduling.EXTRA_FADE_IN, 0);
+    e.vibration = src.getStringExtra(AlarmScheduling.EXTRA_VIBRATION);
     e.afterVolume = src.getIntExtra(AlarmScheduling.EXTRA_AFTER_VOLUME, 60);
     e.afterMustFinish = src.getBooleanExtra(AlarmScheduling.EXTRA_AFTER_MUST_FINISH, false);
     e.firedKey = alarmId + ":snooze:" + AlarmScheduling.minuteKey(e.at);

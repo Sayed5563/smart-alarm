@@ -19,6 +19,10 @@ final class AlarmScheduling {
   static final String EXTRA_AT = "sa_at";
   static final String EXTRA_SNOOZE_MIN = "sa_snoozeMin";
   static final String EXTRA_AFTER_SOUND = "sa_afterSound";
+  static final String EXTRA_RING_SOUND = "sa_ringSound";
+  static final String EXTRA_RING_VOLUME = "sa_ringVolume";
+  static final String EXTRA_FADE_IN = "sa_fadeIn";
+  static final String EXTRA_VIBRATION = "sa_vibration";
   static final String EXTRA_AFTER_VOLUME = "sa_afterVolume";
   static final String EXTRA_AFTER_MUST_FINISH = "sa_afterMustFinish";
 
@@ -34,6 +38,30 @@ final class AlarmScheduling {
         + "-" + c.get(java.util.Calendar.MINUTE);
   }
 
+  /**
+   * The same alarm one week later, at the same wall-clock time (Calendar keeps
+   * it right across a daylight-saving change), keyed exactly as the web layer
+   * would key it so the app's next sync replaces rather than duplicates it.
+   */
+  static AlarmStore.Entry nextWeek(AlarmStore.Entry e) {
+    java.util.Calendar c = java.util.Calendar.getInstance();
+    c.setTimeInMillis(e.at);
+    c.add(java.util.Calendar.DAY_OF_MONTH, 7);
+    AlarmStore.Entry n = AlarmStore.Entry.fromJson(toJsonQuietly(e));
+    n.at = c.getTimeInMillis();
+    n.firedKey = e.alarmId + ":" + e.kind + ":" + minuteKey(n.at);
+    n.id = numericId(n.firedKey);
+    return n;
+  }
+
+  private static org.json.JSONObject toJsonQuietly(AlarmStore.Entry e) {
+    try {
+      return e.toJson();
+    } catch (org.json.JSONException ex) {
+      return new org.json.JSONObject();
+    }
+  }
+
   /** Mirrors the web layer's `numericId` (31-hash, 32-bit wrap, mod 2e9). */
   static int numericId(String key) {
     int h = 0;
@@ -45,9 +73,8 @@ final class AlarmScheduling {
     return (AlarmManager) ctx.getApplicationContext().getSystemService(Context.ALARM_SERVICE);
   }
 
-  private static PendingIntent operation(Context ctx, AlarmStore.Entry e) {
-    Intent i = new Intent(ctx, AlarmReceiver.class);
-    i.setAction("com.sayed.smartalarm.FIRE." + e.id);
+  /** Everything the receiver and service read about one ring. */
+  static void putExtras(Intent i, AlarmStore.Entry e) {
     i.putExtra(EXTRA_ID, e.id);
     i.putExtra(EXTRA_ALARM_ID, e.alarmId);
     i.putExtra(EXTRA_KIND, e.kind);
@@ -57,8 +84,18 @@ final class AlarmScheduling {
     i.putExtra(EXTRA_SNOOZE_MIN, e.snoozeMinutes);
     i.putExtra(AlarmActivity.EXTRA_HAS_TASK, e.hasTask);
     i.putExtra(EXTRA_AFTER_SOUND, e.afterSound);
+    i.putExtra(EXTRA_RING_SOUND, e.ringSound);
+    i.putExtra(EXTRA_RING_VOLUME, e.ringVolume);
+    i.putExtra(EXTRA_FADE_IN, e.fadeIn);
+    i.putExtra(EXTRA_VIBRATION, e.vibration);
     i.putExtra(EXTRA_AFTER_VOLUME, e.afterVolume);
     i.putExtra(EXTRA_AFTER_MUST_FINISH, e.afterMustFinish);
+  }
+
+  private static PendingIntent operation(Context ctx, AlarmStore.Entry e) {
+    Intent i = new Intent(ctx, AlarmReceiver.class);
+    i.setAction("com.sayed.smartalarm.FIRE." + e.id);
+    putExtras(i, e);
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
     return PendingIntent.getBroadcast(ctx, e.id, i, flags);

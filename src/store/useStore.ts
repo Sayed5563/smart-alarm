@@ -31,6 +31,9 @@ export interface StoreState {
   customSounds: CustomSoundMeta[];
   customWallpapers: CustomWallpaperMeta[];
   hasCustomWallpaper: boolean;
+  /** When the running timer ends (epoch ms). Persisted, so it survives leaving
+   *  the Home screen, the app being closed, and (natively) the phone sleeping. */
+  timerEndsAt: number | null;
 
   /** In-memory only. */
   ringing: RingingSession | null;
@@ -43,6 +46,8 @@ export interface StoreState {
   toggleAlarm: (id: ID, enabled?: boolean) => void;
   duplicateAlarm: (id: ID) => void;
   quickSet: (minutesFromNow: number) => Alarm;
+  startTimer: (minutes: number) => void;
+  cancelTimer: () => void;
 
   // ---- settings
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -99,6 +104,7 @@ export const useStore = create<StoreState>()(
       customSounds: [],
       customWallpapers: [],
       hasCustomWallpaper: false,
+      timerEndsAt: null,
       ringing: null,
       lastToast: null,
 
@@ -169,6 +175,9 @@ export const useStore = create<StoreState>()(
           lastFiredKey: undefined,
         });
       },
+
+      startTimer: (minutes) => set({ timerEndsAt: Date.now() + minutes * 60_000 }),
+      cancelTimer: () => set({ timerEndsAt: null }),
 
       quickSet: (minutesFromNow) => {
         const t = new Date(Date.now() + minutesFromNow * 60_000);
@@ -449,6 +458,7 @@ export const useStore = create<StoreState>()(
         customSounds: s.customSounds,
         customWallpapers: s.customWallpapers,
         hasCustomWallpaper: s.hasCustomWallpaper,
+        timerEndsAt: s.timerEndsAt,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<StoreState>;

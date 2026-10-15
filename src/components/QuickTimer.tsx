@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { useT } from '@/i18n';
-import { makeAlarm } from '@/data/defaults';
 import { formatAlarmTime, pad2 } from '@/utils/time';
 import { audioService } from '@/services';
 
@@ -39,51 +38,30 @@ export function QuickSet() {
  */
 export function Timer() {
   const t = useT();
-  const settings = useStore((s) => s.settings);
-  const beginRing = useStore((s) => s.beginRing);
+  // The countdown itself lives in the store and rings from App (web) or as a
+  // native alarm; this is only its display.
+  const target = useStore((s) => s.timerEndsAt);
+  const startTimer = useStore((s) => s.startTimer);
+  const cancelTimer = useStore((s) => s.cancelTimer);
   const ringing = useStore((s) => s.ringing);
 
-  const [target, setTarget] = useState<number | null>(null);
   const [remaining, setRemaining] = useState(0);
   const [customMin, setCustomMin] = useState(3);
-  const firedRef = useRef(false);
 
   useEffect(() => {
     if (target == null) return;
-    firedRef.current = false;
-    const tick = () => {
-      const left = target - Date.now();
-      setRemaining(Math.max(0, left));
-      if (left <= 0 && !firedRef.current) {
-        firedRef.current = true;
-        setTarget(null);
-        const now = new Date();
-        beginRing(
-          makeAlarm(settings, {
-            label: t('timer.title'),
-            category: 'other',
-            hour: now.getHours(),
-            minute: now.getMinutes(),
-            repeat: 'once',
-            fadeInSeconds: 0,
-            wakeUpTask: { type: 'none', difficulty: 'easy', rounds: 1 },
-            strongAlert: { enabled: false, maxDurationMinutes: 5 },
-          }),
-          'timer',
-        );
-      }
-    };
+    const tick = () => setRemaining(Math.max(0, target - Date.now()));
     tick();
     const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
-  }, [target, beginRing, settings, t]);
+  }, [target]);
 
   const start = (mins: number) => {
     if (!audioService.isUnlocked()) void audioService.unlock();
-    setTarget(Date.now() + mins * 60_000);
+    startTimer(mins);
   };
 
-  const running = target != null && !ringing;
+  const running = target != null && target > Date.now() && !ringing;
   const mm = Math.floor(remaining / 60_000);
   const ss = Math.floor((remaining % 60_000) / 1000);
 
@@ -99,7 +77,7 @@ export function Timer() {
       </div>
       {running ? (
         <button
-          onClick={() => setTarget(null)}
+          onClick={cancelTimer}
           className="glass h-12 w-full rounded-2xl text-sm font-medium text-muted transition hover:text-fg"
         >
           {t('timer.cancel')}

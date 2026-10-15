@@ -19,6 +19,8 @@ import type { DueEvent, SchedulerLike, SchedulerState } from './alarmScheduler';
  * Same `configure / start / stop / sync / peek` contract as the web scheduler.
  */
 const PRE_CHANNEL_ID = 'pre-alarm';
+/** Not a real alarm id: a timer has no alarm behind it, so its Stop is bookkeeping-free. */
+const TIMER_ID = 'timer';
 
 /** How long a fired occurrence stays de-duped. Comfortably longer than the
  *  service's 15-minute ring cap, so a retained event can't be replayed twice. */
@@ -141,6 +143,8 @@ class NativeAlarmScheduler implements SchedulerLike {
 
   private fired(e: AlarmFiredEvent | null): void {
     if (!e || !e.alarmId) return;
+    // A timer has no alarm (or history) behind it; the app cleared it when due.
+    if (e.kind === 'timer' || e.kind === 'test') return;
     const key = `${e.firedKey}:${e.action ?? 'ring'}`;
     const now = Date.now();
 
@@ -178,8 +182,12 @@ class NativeAlarmScheduler implements SchedulerLike {
 
   private async reschedule(): Promise<void> {
     if (!this.getState) return;
-    const { alarms, settings, activeAlarmIds } = this.getState();
-    const events = scheduleSet(alarms, settings, activeAlarmIds, Date.now());
+    const { alarms, settings, activeAlarmIds, timerEndsAt } = this.getState();
+    const events: PlannedEvent[] = scheduleSet(alarms, settings, activeAlarmIds, Date.now());
+    // The timer is just one more native alarm, so it rings with the phone asleep.
+    if (timerEndsAt && timerEndsAt > Date.now()) {
+      events.push({ alarmId: TIMER_ID, kind: 'timer', at: timerEndsAt });
+    }
 
     const byId = new Map(alarms.map((a) => [a.id, a]));
     // Everything the native side is handed, not just the times: editing only a
@@ -196,23 +204,29 @@ class NativeAlarmScheduler implements SchedulerLike {
     // ---- main alarms + snoozes → the native alarm plugin
     let nativeOk = true;
     try {
-      const afterSounds = await this.saveAfterSounds(main.map((e) => byId.get(e.alarmId)));
+      const soundIds = new Set<string>();
+      for (const e of main) {
+        const a = byId.get(e.alarmId);
+        if (!a) continue;
+        soundIds.add(a.soundId);
+        if (a.afterStop.enabled) soundIds.add(a.afterStop.soundId);
+      }
+      const sounds = await this.saveSounds([...soundIds]);
       await AlarmClock.cancelAll();
       for (const e of main) {
         const key = keyOf(e);
-        const after = byId.get(e.alarmId)?.afterStop;
+        const alarm = byId.get(e.alarmId);
         await AlarmClock.schedule({
           id: numericId(key),
           at: e.at,
-          title: label(e.alarmId),
+          title: e.kind === 'timer' ? 'Timer' : label(e.alarmId),
           kind: e.kind,
           alarmId: e.alarmId,
           firedKey: key,
           snoozeMinutes: snoozeMins(e.alarmId),
           hasTask: hasTask(e.alarmId),
-          afterSound: after?.enabled ? (afterSounds.get(after.soundId) ?? '') : '',
-          afterVolume: Math.round((after?.volume ?? 0.6) * 100),
-          afterMustFinish: after?.behavior === 'must-finish',
+          repeating: e.kind === 'alarm' && (alarm?.repeat ?? 'once') !== 'once',
+          ...soundFields(alarm, sounds),
         });
       }
     } catch {
@@ -246,16 +260,30 @@ class NativeAlarmScheduler implements SchedulerLike {
     this.lastKeys = nativeOk ? keys : new Set();
   }
 
+  /** "Test alarm": the real native alarm screen and sounds, right now. */
+  async test(alarm: Alarm): Promise<void> {
+    const ids = [alarm.soundId, ...(alarm.afterStop.enabled ? [alarm.afterStop.soundId] : [])];
+    const sounds = await this.saveSounds(ids);
+    await AlarmClock.testRing({
+      title: alarm.label || 'Alarm',
+      kind: 'test',
+      alarmId: 'test', // no alarm behind it: its Stop records nothing
+      firedKey: `test:${Date.now()}`,
+      snoozeMinutes: alarm.snoozeMinutes,
+      hasTask: false,
+      repeating: false,
+      ...soundFields(alarm, sounds),
+    });
+  }
+
   /**
-   * Make sure each enabled after-stop sound exists as a file natively; the
-   * service plays it after Stop with the app closed. Returns soundId → key for
-   * the ones that are there. One that fails just plays nothing after Stop.
+   * Make sure each sound exists as a file natively; the service plays it with
+   * the app closed. Returns soundId → key for the ones that are there. One that
+   * fails falls back natively: the bundled tone for an alarm, nothing after Stop.
    */
-  private async saveAfterSounds(list: (Alarm | undefined)[]): Promise<Map<string, string>> {
+  private async saveSounds(ids: string[]): Promise<Map<string, string>> {
     const saved = new Map<string, string>();
-    for (const a of list) {
-      if (!a?.afterStop.enabled || saved.has(a.afterStop.soundId)) continue;
-      const id = a.afterStop.soundId;
+    for (const id of ids) {
       const key = id.replace(/[^A-Za-z0-9_-]/g, '_');
       try {
         if (!(await AlarmClock.hasSound({ key })).exists) {
@@ -265,7 +293,7 @@ class NativeAlarmScheduler implements SchedulerLike {
         }
         saved.set(id, key);
       } catch {
-        /* no after-stop sound for this one */
+        /* native falls back for this one */
       }
     }
     return saved;
@@ -298,10 +326,24 @@ function fromNotif(n: {
   };
 }
 
+function soundFields(alarm: Alarm | undefined, sounds: Map<string, string>) {
+  const after = alarm?.afterStop;
+  return {
+    ringSound: (alarm && sounds.get(alarm.soundId)) ?? '',
+    ringVolume: Math.round((alarm?.volume ?? 1) * 100),
+    fadeIn: alarm?.fadeInSeconds ?? 0,
+    vibration: alarm?.vibration ?? '',
+    afterSound: after?.enabled ? (sounds.get(after.soundId) ?? '') : '',
+    afterVolume: Math.round((after?.volume ?? 0.6) * 100),
+    afterMustFinish: after?.behavior === 'must-finish',
+  };
+}
+
 function nativeConfigKey(a: Alarm | undefined): string {
   if (!a) return '';
   const s = a.afterStop;
-  return [a.label, a.snoozeMinutes, a.wakeUpTask.type, s.enabled, s.soundId, s.volume, s.behavior].join('|');
+  return [a.label, a.repeat, a.snoozeMinutes, a.wakeUpTask.type, a.soundId, a.volume, a.fadeInSeconds,
+    a.vibration, s.enabled, s.soundId, s.volume, s.behavior].join('|');
 }
 
 function setsEqual(a: Set<string>, b: Set<string>): boolean {

@@ -104,6 +104,7 @@ public class AlarmActivity extends Activity {
     String kind = intent.getStringExtra(AlarmScheduling.EXTRA_KIND);
     String title = intent.getStringExtra(AlarmScheduling.EXTRA_TITLE);
     boolean pre = "pre-alarm".equals(kind);
+    boolean timer = "timer".equals(kind) || "test".equals(kind);
     boolean hasTask = intent.getBooleanExtra(EXTRA_HAS_TASK, false);
     if (title == null || title.isEmpty()) title = "Alarm";
 
@@ -116,7 +117,7 @@ public class AlarmActivity extends Activity {
       if (hasTask && !pre) openTask(intent);
       else act(AlarmService.ACTION_STOP, intent);
     });
-    snooze.setVisibility(pre ? View.GONE : View.VISIBLE);
+    snooze.setVisibility(pre || timer ? View.GONE : View.VISIBLE);
     snooze.setOnClickListener(v -> act(AlarmService.ACTION_SNOOZE, intent));
   }
 

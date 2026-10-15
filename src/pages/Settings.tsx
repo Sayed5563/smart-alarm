@@ -249,9 +249,13 @@ export function Settings() {
       </SettingsSection>
 
       {/* -------------------------------------------------- Notifications */}
-      <SettingsSection title={t('settings.section.notifications')}>
-        <p className="text-sm text-muted">{t('settings.notificationsBody')}</p>
-        <div className="mt-3">
+      {/* The phone app arms real alarms itself; these web notification controls
+          (and the browser notes below) only make sense in the browser. */}
+      <SettingsSection
+        title={t(isNativeApp ? 'settings.section.permissions' : 'settings.section.notifications')}
+      >
+        {!isNativeApp && <p className="text-sm text-muted">{t('settings.notificationsBody')}</p>}
+        <div className={isNativeApp ? 'hidden' : 'mt-3'}>
           {notifPerm === 'unsupported' && (
             <p className="text-sm text-muted">{t('settings.notificationsUnsupported')}</p>
           )}
@@ -278,7 +282,9 @@ export function Settings() {
 
       {/* -------------------------------------------------- Quiet hours */}
       <SettingsSection title={t('settings.section.quiet')}>
-        <p className="mb-3 text-sm text-muted">{t('settings.dndBody')}</p>
+        <p className="mb-3 text-sm text-muted">
+          {t(isNativeApp ? 'settings.dndBodyNative' : 'settings.dndBody')}
+        </p>
         <RowToggle
           label={t('settings.dnd')}
           checked={settings.dnd.enabled}
@@ -368,7 +374,7 @@ export function Settings() {
             <p className="mt-1.5 text-xs text-muted">{t('settings.resetBody')}</p>
           </div>
 
-          {storageInfo && storageInfo.quota > 0 && (
+          {!isNativeApp && storageInfo && storageInfo.quota > 0 && (
             <div className="pt-2 text-xs text-muted">
               {t('settings.storageUsed', {
                 used: fmtBytes(storageInfo.usage),
@@ -393,7 +399,7 @@ export function Settings() {
         <p className="text-sm">{t('about.tagline')}</p>
         <div className="mt-1 flex items-center justify-between gap-3">
           <p className="text-xs text-muted">{t('about.version', { v: APP_VERSION })}</p>
-          <UpdateButton />
+          {!isNativeApp && <UpdateButton />}
         </div>
         <About />
       </SettingsSection>
@@ -555,11 +561,15 @@ function About() {
   const t = useT();
   return (
     <div className="mt-3 space-y-3">
-      <p className="text-xs leading-relaxed text-muted">{t('about.autoUpdateNote')}</p>
-      <details className="rounded-xl border border-border p-3">
-        <summary className="cursor-pointer text-sm font-medium">{t('about.limitationsTitle')}</summary>
-        <p className="mt-2 text-xs leading-relaxed text-muted">{t('about.limitations')}</p>
-      </details>
+      {!isNativeApp && (
+        <>
+          <p className="text-xs leading-relaxed text-muted">{t('about.autoUpdateNote')}</p>
+          <details className="rounded-xl border border-border p-3">
+            <summary className="cursor-pointer text-sm font-medium">{t('about.limitationsTitle')}</summary>
+            <p className="mt-2 text-xs leading-relaxed text-muted">{t('about.limitations')}</p>
+          </details>
+        </>
+      )}
       <details className="rounded-xl border border-border p-3">
         <summary className="cursor-pointer text-sm font-medium">{t('about.privacyTitle')}</summary>
         <p className="mt-2 text-xs leading-relaxed text-muted">{t('about.privacy')}</p>

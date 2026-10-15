@@ -53,6 +53,27 @@ public class AlarmClockPlugin extends Plugin {
 
   @PluginMethod
   public void schedule(PluginCall call) {
+    AlarmStore.Entry e = entryFrom(call);
+    if (e.id == 0 || e.at <= 0) {
+      call.reject("id and at are required");
+      return;
+    }
+    AlarmScheduling.set(getContext(), e);
+    call.resolve();
+  }
+
+  /** Ring right now through the real service and alarm screen (Test alarm). */
+  @PluginMethod
+  public void testRing(PluginCall call) {
+    AlarmStore.Entry e = entryFrom(call);
+    e.at = System.currentTimeMillis();
+    Intent svc = new Intent(getContext(), AlarmService.class);
+    AlarmScheduling.putExtras(svc, e);
+    androidx.core.content.ContextCompat.startForegroundService(getContext(), svc);
+    call.resolve();
+  }
+
+  private static AlarmStore.Entry entryFrom(PluginCall call) {
     AlarmStore.Entry e = new AlarmStore.Entry();
     e.id = call.getInt("id", 0);
     e.at = call.getLong("at", 0L);
@@ -62,15 +83,15 @@ public class AlarmClockPlugin extends Plugin {
     e.firedKey = call.getString("firedKey", "");
     e.snoozeMinutes = call.getInt("snoozeMinutes", 0);
     e.hasTask = call.getBoolean("hasTask", false);
+    e.repeating = call.getBoolean("repeating", false);
+    e.ringSound = call.getString("ringSound", "");
+    e.ringVolume = call.getInt("ringVolume", 100);
+    e.fadeIn = call.getInt("fadeIn", 0);
+    e.vibration = call.getString("vibration", "");
     e.afterSound = call.getString("afterSound", "");
     e.afterVolume = call.getInt("afterVolume", 60);
     e.afterMustFinish = call.getBoolean("afterMustFinish", false);
-    if (e.id == 0 || e.at <= 0) {
-      call.reject("id and at are required");
-      return;
-    }
-    AlarmScheduling.set(getContext(), e);
-    call.resolve();
+    return e;
   }
 
   @PluginMethod
@@ -161,9 +182,9 @@ public class AlarmClockPlugin extends Plugin {
     return ret;
   }
 
-  /** Where an after-stop sound lives. The web app renders it ahead of time (saveSound). */
-  static java.io.File afterSoundFile(android.content.Context ctx, String key) {
-    return new java.io.File(new java.io.File(ctx.getFilesDir(), "after-sounds"), key);
+  /** Where an alarm or after-stop sound lives. The web app renders it ahead of time (saveSound). */
+  static java.io.File soundFile(android.content.Context ctx, String key) {
+    return new java.io.File(new java.io.File(ctx.getFilesDir(), "sounds"), key);
   }
 
   private static boolean validKey(String key) {
@@ -174,11 +195,11 @@ public class AlarmClockPlugin extends Plugin {
   public void hasSound(PluginCall call) {
     String key = call.getString("key");
     JSObject ret = new JSObject();
-    ret.put("exists", validKey(key) && afterSoundFile(getContext(), key).exists());
+    ret.put("exists", validKey(key) && soundFile(getContext(), key).exists());
     call.resolve(ret);
   }
 
-  /** Store an after-stop sound (base64 audio file) so the service can play it with the app closed. */
+  /** Store an alarm or after-stop sound (base64 audio file) so the service can play it with the app closed. */
   @PluginMethod
   public void saveSound(PluginCall call) {
     String key = call.getString("key");
@@ -187,7 +208,7 @@ public class AlarmClockPlugin extends Plugin {
       call.reject("key and data are required");
       return;
     }
-    java.io.File f = afterSoundFile(getContext(), key);
+    java.io.File f = soundFile(getContext(), key);
     java.io.File tmp = new java.io.File(f.getPath() + ".tmp");
     try {
       f.getParentFile().mkdirs();

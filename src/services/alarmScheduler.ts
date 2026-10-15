@@ -16,6 +16,8 @@ export interface SchedulerState {
   settings: AppSettings;
   /** null = no profile gating (all enabled alarms active). */
   activeAlarmIds: string[] | null;
+  /** The running timer, if any (epoch ms). Only the native scheduler arms it. */
+  timerEndsAt?: number | null;
 }
 
 export interface DueEvent extends ScheduledEvent {

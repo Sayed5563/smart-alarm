@@ -8,7 +8,7 @@ import { isNativeApp } from './platform';
  */
 export interface AlarmFiredEvent {
   alarmId: string;
-  kind: 'alarm' | 'pre-alarm' | 'snooze';
+  kind: 'alarm' | 'pre-alarm' | 'snooze' | 'timer' | 'test';
   at: number;
   firedKey: string;
   /** Set when the user hit Stop / Snooze on the notification instead of tapping it. */
@@ -36,11 +36,19 @@ export interface AlarmClockPlugin {
     snoozeMinutes: number;
     /** Stop on the native alarm screen opens the app's wake-up task. */
     hasTask: boolean;
+    /** Re-arm natively 7 days on after it fires (a repeating alarm's weekly slot). */
+    repeating: boolean;
+    /** Key of the alarm's own sound (saveSound), or '' for the bundled tone. */
+    ringSound: string;
+    ringVolume: number; // 0..100
+    fadeIn: number; // seconds
+    vibration: string;
     /** Key of a sound saved with saveSound, or '' for no after-stop sound. */
     afterSound: string;
     afterVolume: number; // 0..100
     afterMustFinish: boolean;
   }): Promise<void>;
+  testRing(opts: Omit<Parameters<AlarmClockPlugin['schedule']>[0], 'id' | 'at'>): Promise<void>;
   hasSound(opts: { key: string }): Promise<{ exists: boolean }>;
   saveSound(opts: { key: string; data: string }): Promise<void>;
   consumePendingActions(): Promise<{ actions: AlarmFiredEvent[] }>;

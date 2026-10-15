@@ -109,6 +109,15 @@ describe('scheduleSet (native OS scheduling)', () => {
     expect(new Date(evs[2].at).getDate()).toBe(3);
   });
 
+  it('by default arms every weekly slot exactly once, for the native weekly re-arm', () => {
+    const now = new Date(2026, 5, 1, 6, 0, 0).getTime(); // a Monday
+    const days = (evs: { at: number }[]) => evs.map((e) => new Date(e.at).getDay()).sort();
+    const daily = scheduleSet([at(7, 0)], settings, null, now).filter((e) => e.kind === 'alarm');
+    expect(days(daily)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    const weekdays = scheduleSet([at(7, 0, { repeat: 'weekdays' })], settings, null, now);
+    expect(days(weekdays)).toEqual([1, 2, 3, 4, 5]);
+  });
+
   it('includes each pre-alarm alongside its main occurrence', () => {
     const now = new Date(2026, 5, 1, 6, 0, 0).getTime();
     const alarm = at(7, 0, {
