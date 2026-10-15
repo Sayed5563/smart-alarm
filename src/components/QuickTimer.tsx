@@ -7,10 +7,14 @@ export function QuickSet() {
   const quickSet = useStore((s) => s.quickSet);
   const hour24 = useStore((s) => s.settings.hour24);
   const toast = useStore((s) => s.toast);
+  const deleteAlarm = useStore((s) => s.deleteAlarm);
 
   const add = (mins: number) => {
     const a = quickSet(mins);
-    toast(t('quick.created', { time: formatAlarmTime(a.hour, a.minute, hour24) }));
+    toast(t('quick.created', { time: formatAlarmTime(a.hour, a.minute, hour24) }), {
+      label: t('common.undo'),
+      run: () => deleteAlarm(a.id),
+    });
   };
 
   return (

@@ -9,7 +9,7 @@ import { QuickSet } from '@/components/QuickTimer';
 import { Button } from '@/components/ui';
 import { nextEvent } from '@/utils/schedule';
 import { formatAlarmTime, formatCountdown } from '@/utils/time';
-import { sortByTimeOfDay } from '@/utils/alarmList';
+import { nextInKey, sortByTimeOfDay } from '@/utils/alarmList';
 import { audioService, isNativeApp } from '@/services';
 
 export function Alarms() {
@@ -47,13 +47,13 @@ export function Alarms() {
   return (
     <div className="space-y-5 pb-24">
       <header className="pt-6">
-        <p className="tnum text-sm text-muted">
+        <p className="on-wallpaper tnum text-sm text-muted">
           {dateLabel} · {formatAlarmTime(now.getHours(), now.getMinutes(), settings.hour24)}
         </p>
         <h1 className="mt-1 text-[1.75rem] font-semibold tracking-tight">{t('alarms.title')}</h1>
         <p className="mt-0.5 text-sm font-medium text-accent">
           {next
-            ? t('alarms.nextIn', { time: formatCountdown(next.at - now.getTime()) })
+            ? t(nextInKey(next.kind), { time: formatCountdown(next.at - now.getTime()) })
             : t('alarms.noneOn')}
         </p>
       </header>

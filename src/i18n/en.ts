@@ -32,6 +32,8 @@ export const en = {
   'alarms.title': 'Alarms',
   'alarms.untitled': 'Alarm',
   'alarms.nextIn': 'Next in {time}',
+  'alarms.preAlarmIn': 'Pre-alarm in {time}',
+  'alarms.snoozeIn': 'Snoozed · rings in {time}',
   'alarms.noneOn': 'No alarms on',
   'alarms.deleted': 'Alarm deleted',
   'alarms.newAlarm': 'New alarm',

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { backAction, parentOf, parseRoute, routeHash, tabFor } from '@/hooks/useHashRoute';
+import { describe, expect, it, vi } from 'vitest';
+import { backAction, goBack, parentOf, parseRoute, routeHash, tabFor, trackRoute } from '@/hooks/useHashRoute';
 
 describe('parseRoute', () => {
   it('maps the tabs', () => {
@@ -44,5 +44,21 @@ describe('backAction', () => {
   it('replaces instead when we arrived some other way (deep link, notification)', () => {
     expect(backAction(null, 'advanced')).toBe('replace');
     expect(backAction('alarms', 'settings')).toBe('replace');
+  });
+});
+
+describe('goBack double tap', () => {
+  it('a second tap before the page changes does not go back twice', () => {
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    trackRoute('settings');
+    trackRoute('advanced');
+    trackRoute('history');
+    goBack('advanced');
+    goBack('advanced');
+    expect(back).toHaveBeenCalledTimes(1);
+    trackRoute('advanced'); // the pop landed
+    goBack('settings');
+    expect(back).toHaveBeenCalledTimes(2);
+    back.mockRestore();
   });
 });

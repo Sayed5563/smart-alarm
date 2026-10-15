@@ -14,7 +14,7 @@ export function PageHeader({ title, back }: { title: string; back?: Route }) {
             goBack(back);
           }}
           aria-label={t('common.back')}
-          className="-ml-2 grid h-11 w-11 place-items-center rounded-full text-muted hover:text-fg"
+          className="on-wallpaper -ml-2 grid h-11 w-11 place-items-center rounded-full text-muted hover:text-fg"
         >
           <svg
             width="22"
