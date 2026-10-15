@@ -60,6 +60,7 @@ export const en = {
   'editor.cancel': 'Cancel',
   'editor.more': 'More options',
   'editor.test': 'Test this alarm',
+  'editor.preview': 'Preview',
   'editor.deleteAlarm': 'Delete alarm',
   'editor.section.basic': 'Basic',
   'editor.section.repeat': 'Repeat',
