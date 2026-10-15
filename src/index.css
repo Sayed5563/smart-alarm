@@ -13,6 +13,8 @@
   --color-surface: var(--c-surface);
   /* Near-solid: tiles carry text over any wallpaper without a blur. */
   --color-tile: var(--c-tile);
+  /* Fully opaque: the tab bar never shows the page scrolling under it. */
+  --color-bar: var(--c-bar);
   --color-surface-2: var(--c-surface-2);
   --color-border: var(--c-border);
   --color-hairline: var(--c-hairline);
@@ -39,6 +41,7 @@
   --c-muted: #6b7280;
   --c-surface: rgba(255, 255, 255, 0.82);
   --c-tile: rgba(255, 255, 255, 0.94);
+  --c-bar: #ffffff;
   --c-surface-2: rgba(17, 22, 32, 0.045);
   --c-border: rgba(17, 22, 32, 0.09);
   --c-hairline: rgba(17, 22, 32, 0.08);
@@ -59,6 +62,7 @@
   --c-muted: #7e8798;
   --c-surface: rgba(24, 28, 37, 0.55);
   --c-tile: rgba(20, 24, 32, 0.92);
+  --c-bar: #141820;
   --c-surface-2: rgba(255, 255, 255, 0.055);
   --c-border: rgba(255, 255, 255, 0.08);
   --c-hairline: rgba(255, 255, 255, 0.07);
