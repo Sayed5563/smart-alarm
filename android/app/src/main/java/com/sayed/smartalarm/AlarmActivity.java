@@ -35,6 +35,24 @@ public class AlarmActivity extends Activity {
     if (current != null) current.finishAndRemoveTask();
   }
 
+  /** The service swapped the alarm for its after-stop sound. */
+  static void showAfterStop(boolean mustFinish) {
+    if (current != null) current.afterStopUi(mustFinish);
+  }
+
+  private void afterStopUi(boolean mustFinish) {
+    ((TextView) findViewById(R.id.alarm_label)).setText("After-stop sound is playing");
+    findViewById(R.id.alarm_snooze).setVisibility(View.GONE);
+    Button stop = findViewById(R.id.alarm_stop);
+    // "Must play to the end": nothing to press; the screen closes when it ends.
+    stop.setVisibility(mustFinish ? View.GONE : View.VISIBLE);
+    stop.setText("Stop after-sound");
+    stop.setOnClickListener(v -> {
+      startService(new Intent(this, AlarmService.class).setAction(AlarmService.ACTION_STOP_AFTER));
+      finishAndRemoveTask();
+    });
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -107,7 +125,11 @@ public class AlarmActivity extends Activity {
     i.setAction(action);
     i.putExtras(src);
     startService(i);
-    finishAndRemoveTask();
+    // With an after-stop sound the service keeps this screen up (showAfterStop)
+    // and closes it when the sound ends; it also closes it if there's none to play.
+    String after = src.getStringExtra(AlarmScheduling.EXTRA_AFTER_SOUND);
+    boolean mayPlayAfter = AlarmService.ACTION_STOP.equals(action) && after != null && !after.isEmpty();
+    if (!mayPlayAfter) finishAndRemoveTask();
   }
 
   /** Keep ringing and hand over to the app's task screen. */

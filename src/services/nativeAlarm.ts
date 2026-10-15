@@ -36,7 +36,13 @@ export interface AlarmClockPlugin {
     snoozeMinutes: number;
     /** Stop on the native alarm screen opens the app's wake-up task. */
     hasTask: boolean;
+    /** Key of a sound saved with saveSound, or '' for no after-stop sound. */
+    afterSound: string;
+    afterVolume: number; // 0..100
+    afterMustFinish: boolean;
   }): Promise<void>;
+  hasSound(opts: { key: string }): Promise<{ exists: boolean }>;
+  saveSound(opts: { key: string; data: string }): Promise<void>;
   consumePendingActions(): Promise<{ actions: AlarmFiredEvent[] }>;
   cancel(opts: { id: number }): Promise<void>;
   cancelAll(): Promise<void>;

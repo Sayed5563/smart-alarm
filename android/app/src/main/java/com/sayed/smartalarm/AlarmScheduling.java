@@ -18,6 +18,9 @@ final class AlarmScheduling {
   static final String EXTRA_FIRED_KEY = "sa_firedKey";
   static final String EXTRA_AT = "sa_at";
   static final String EXTRA_SNOOZE_MIN = "sa_snoozeMin";
+  static final String EXTRA_AFTER_SOUND = "sa_afterSound";
+  static final String EXTRA_AFTER_VOLUME = "sa_afterVolume";
+  static final String EXTRA_AFTER_MUST_FINISH = "sa_afterMustFinish";
 
   /** Mirrors the web layer's `minuteKey` — note Calendar.MONTH is 0-based, as
    *  JavaScript's getMonth() is, so the two produce identical strings. */
@@ -53,6 +56,9 @@ final class AlarmScheduling {
     i.putExtra(EXTRA_AT, e.at);
     i.putExtra(EXTRA_SNOOZE_MIN, e.snoozeMinutes);
     i.putExtra(AlarmActivity.EXTRA_HAS_TASK, e.hasTask);
+    i.putExtra(EXTRA_AFTER_SOUND, e.afterSound);
+    i.putExtra(EXTRA_AFTER_VOLUME, e.afterVolume);
+    i.putExtra(EXTRA_AFTER_MUST_FINISH, e.afterMustFinish);
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
     return PendingIntent.getBroadcast(ctx, e.id, i, flags);

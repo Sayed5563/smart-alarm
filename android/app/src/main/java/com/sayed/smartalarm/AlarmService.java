@@ -41,6 +41,10 @@ public class AlarmService extends Service {
 
   public static final String ACTION_STOP = "com.sayed.smartalarm.STOP";
   public static final String ACTION_SNOOZE = "com.sayed.smartalarm.SNOOZE";
+  /** Ends the after-stop sound early (only offered when it's "stoppable"). */
+  public static final String ACTION_STOP_AFTER = "com.sayed.smartalarm.STOP_AFTER";
+  /** Same cap as the web ring screen's AFTER_SOUND_MAX_MS. */
+  private static final long AFTER_SOUND_CAP_MS = 3 * 60 * 1000L;
   /** Set when the running web UI asked us to stop, so we don't queue it twice. */
   private static final String EXTRA_FROM_APP = "sa_fromApp";
 
@@ -64,6 +68,10 @@ public class AlarmService extends Service {
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     String action = intent != null ? intent.getAction() : null;
+    if (ACTION_STOP_AFTER.equals(action)) {
+      stopEverything();
+      return START_NOT_STICKY;
+    }
     if (ACTION_STOP.equals(action) || ACTION_SNOOZE.equals(action)) {
       boolean snooze = ACTION_SNOOZE.equals(action);
       // When the request came from the web UI the app is already running and
@@ -81,6 +89,8 @@ public class AlarmService extends Service {
         if (snooze) p.snoozeUntil = scheduleSnooze(intent);
         AlarmStore.addPending(this, p);
       }
+      // A web-UI stop (wake-up task) plays its own after-stop sound.
+      if (!snooze && !fromApp && startAfterSound(intent)) return START_NOT_STICKY;
       stopEverything();
       return START_NOT_STICKY;
     }
@@ -114,6 +124,71 @@ public class AlarmService extends Service {
 
     handler.postDelayed(safety, pre ? 3 * 60 * 1000L : SAFETY_CAP_MS);
     return START_STICKY;
+  }
+
+  // ---------------------------------------------------------------- after-stop sound
+
+  /**
+   * Swap the alarm for its after-stop sound: same foreground service and wake
+   * lock, the alarm screen switches to "after-stop sound is playing". Returns
+   * false when there's nothing to play, so the caller just stops.
+   */
+  private boolean startAfterSound(Intent src) {
+    if (src == null || "pre-alarm".equals(src.getStringExtra(AlarmScheduling.EXTRA_KIND))) return false;
+    String key = src.getStringExtra(AlarmScheduling.EXTRA_AFTER_SOUND);
+    if (key == null || key.isEmpty()) return false;
+    java.io.File f = AlarmClockPlugin.afterSoundFile(this, key);
+    if (!f.exists()) return false;
+    float volume = src.getIntExtra(AlarmScheduling.EXTRA_AFTER_VOLUME, 60) / 100f;
+    boolean mustFinish = src.getBooleanExtra(AlarmScheduling.EXTRA_AFTER_MUST_FINISH, false);
+
+    stopRingingSound();
+    MediaPlayer p = new MediaPlayer();
+    try {
+      p.setAudioAttributes(new AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_ALARM)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .build());
+      p.setDataSource(f.getPath());
+      p.setVolume(volume, volume);
+      p.setOnCompletionListener(mp -> stopEverything());
+      p.prepare();
+      p.start();
+    } catch (Exception e) {
+      p.release();
+      return false;
+    }
+    player = p;
+    // The alarm itself is over; only the after-sound is left.
+    isRinging = false;
+    handler.removeCallbacks(safety);
+    handler.postDelayed(safety, AFTER_SOUND_CAP_MS);
+
+    NotificationCompat.Builder b = new NotificationCompat.Builder(this, QUIET_CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_stat_alarm)
+        .setContentTitle(notifTitle != null ? notifTitle : "Alarm")
+        .setContentText("After-stop sound is playing")
+        .setOngoing(true);
+    if (!mustFinish) {
+      b.addAction(0, "Stop", PendingIntent.getService(this, 4,
+          new Intent(this, AlarmService.class).setAction(ACTION_STOP_AFTER), piFlags()));
+    }
+    ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(NOTIF_ID, b.build());
+
+    AlarmActivity.showAfterStop(mustFinish);
+    return true;
+  }
+
+  private void stopRingingSound() {
+    if (player != null) {
+      try { player.stop(); } catch (Exception ignored) {}
+      player.release();
+      player = null;
+    }
+    if (vibrator != null) {
+      vibrator.cancel();
+      vibrator = null;
+    }
   }
 
   // ---------------------------------------------------------------- sound
@@ -286,6 +361,9 @@ public class AlarmService extends Service {
     e.title = orDefault(src.getStringExtra(AlarmScheduling.EXTRA_TITLE), "Alarm");
     e.snoozeMinutes = mins;
     e.hasTask = src.getBooleanExtra(AlarmActivity.EXTRA_HAS_TASK, false);
+    e.afterSound = src.getStringExtra(AlarmScheduling.EXTRA_AFTER_SOUND);
+    e.afterVolume = src.getIntExtra(AlarmScheduling.EXTRA_AFTER_VOLUME, 60);
+    e.afterMustFinish = src.getBooleanExtra(AlarmScheduling.EXTRA_AFTER_MUST_FINISH, false);
     e.firedKey = alarmId + ":snooze:" + AlarmScheduling.minuteKey(e.at);
     e.id = AlarmScheduling.numericId(e.firedKey);
     AlarmScheduling.set(this, e);
@@ -314,15 +392,7 @@ public class AlarmService extends Service {
     currentKind = null;
     AlarmActivity.close();
     instance = null;
-    if (player != null) {
-      try { player.stop(); } catch (Exception ignored) {}
-      player.release();
-      player = null;
-    }
-    if (vibrator != null) {
-      vibrator.cancel();
-      vibrator = null;
-    }
+    stopRingingSound();
     if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       stopForeground(STOP_FOREGROUND_REMOVE);

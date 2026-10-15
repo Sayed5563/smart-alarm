@@ -1,6 +1,7 @@
 import type { SoundRecipe } from '@/types';
 import { getBuiltinSound } from '@/data/sounds';
 import { storageService } from './storageService';
+import { encodeWav } from '@/utils/wav';
 
 /**
  * AudioService — all sound goes through here.
@@ -179,6 +180,35 @@ class AudioServiceImpl {
       this.master.gain.value = 1;
       this.master.connect(this.ctx.destination);
       return this.ctx;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * The sound as an audio file (base64), for the native after-stop player,
+   * which runs with the app closed. An uploaded sound is passed through as-is;
+   * a built-in one is rendered once and encoded as WAV.
+   */
+  async soundFileBase64(soundId: string): Promise<string | null> {
+    try {
+      let blob: Blob | undefined;
+      if (soundId.startsWith('custom:')) {
+        blob = await storageService.getSound(soundId.slice('custom:'.length));
+      }
+      if (!blob) {
+        const ctx = this.ensureCtx();
+        const buf = ctx ? await this.resolveBuffer(soundId, ctx) : null;
+        if (!buf) return null;
+        blob = new Blob([encodeWav(buf)], { type: 'audio/wav' });
+      }
+      const url = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+      });
+      return url.slice(url.indexOf(',') + 1);
     } catch {
       return null;
     }
