@@ -62,6 +62,9 @@ public class AlarmClockPlugin extends Plugin {
     e.firedKey = call.getString("firedKey", "");
     e.snoozeMinutes = call.getInt("snoozeMinutes", 0);
     e.hasTask = call.getBoolean("hasTask", false);
+    e.afterSound = call.getString("afterSound", "");
+    e.afterVolume = call.getInt("afterVolume", 60);
+    e.afterMustFinish = call.getBoolean("afterMustFinish", false);
     if (e.id == 0 || e.at <= 0) {
       call.reject("id and at are required");
       return;
@@ -156,6 +159,47 @@ public class AlarmClockPlugin extends Plugin {
     JSObject ret = new JSObject();
     ret.put("backgrounded", value);
     return ret;
+  }
+
+  /** Where an after-stop sound lives. The web app renders it ahead of time (saveSound). */
+  static java.io.File afterSoundFile(android.content.Context ctx, String key) {
+    return new java.io.File(new java.io.File(ctx.getFilesDir(), "after-sounds"), key);
+  }
+
+  private static boolean validKey(String key) {
+    return key != null && key.matches("[A-Za-z0-9_-]{1,120}");
+  }
+
+  @PluginMethod
+  public void hasSound(PluginCall call) {
+    String key = call.getString("key");
+    JSObject ret = new JSObject();
+    ret.put("exists", validKey(key) && afterSoundFile(getContext(), key).exists());
+    call.resolve(ret);
+  }
+
+  /** Store an after-stop sound (base64 audio file) so the service can play it with the app closed. */
+  @PluginMethod
+  public void saveSound(PluginCall call) {
+    String key = call.getString("key");
+    String data = call.getString("data");
+    if (!validKey(key) || data == null) {
+      call.reject("key and data are required");
+      return;
+    }
+    java.io.File f = afterSoundFile(getContext(), key);
+    java.io.File tmp = new java.io.File(f.getPath() + ".tmp");
+    try {
+      f.getParentFile().mkdirs();
+      try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp)) {
+        out.write(android.util.Base64.decode(data, android.util.Base64.DEFAULT));
+      }
+      if (!tmp.renameTo(f)) throw new java.io.IOException("rename failed");
+      call.resolve();
+    } catch (Exception e) {
+      tmp.delete();
+      call.reject("could not save sound", e);
+    }
   }
 
   /** The web app has painted its first frame: let the splash go. */

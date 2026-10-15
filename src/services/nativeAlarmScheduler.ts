@@ -3,6 +3,8 @@ import { LocalNotifications, type LocalNotificationSchema } from '@capacitor/loc
 import { scheduleSet } from '@/utils/schedule';
 import { minuteKey } from '@/utils/time';
 import { AlarmClock, type AlarmFiredEvent } from './nativeAlarm';
+import { audioService } from './audioService';
+import type { Alarm } from '@/types';
 import type { DueEvent, SchedulerLike, SchedulerState } from './alarmScheduler';
 
 /**
@@ -179,22 +181,26 @@ class NativeAlarmScheduler implements SchedulerLike {
     const { alarms, settings, activeAlarmIds } = this.getState();
     const events = scheduleSet(alarms, settings, activeAlarmIds, Date.now());
 
-    const keys = new Set(events.map(keyOf));
+    const byId = new Map(alarms.map((a) => [a.id, a]));
+    // Everything the native side is handed, not just the times: editing only a
+    // label, a wake-up task or the after-stop sound must re-arm too.
+    const keys = new Set(events.map((e) => `${keyOf(e)}|${nativeConfigKey(byId.get(e.alarmId))}`));
     if (setsEqual(keys, this.lastKeys)) return;
 
-    const label = (id: string) => alarms.find((a) => a.id === id)?.label || 'Alarm';
-    const snoozeMins = (id: string) => alarms.find((a) => a.id === id)?.snoozeMinutes ?? 5;
-    const hasTask = (id: string) =>
-      (alarms.find((a) => a.id === id)?.wakeUpTask.type ?? 'none') !== 'none';
+    const label = (id: string) => byId.get(id)?.label || 'Alarm';
+    const snoozeMins = (id: string) => byId.get(id)?.snoozeMinutes ?? 5;
+    const hasTask = (id: string) => (byId.get(id)?.wakeUpTask.type ?? 'none') !== 'none';
     const main = events.filter((e) => e.kind !== 'pre-alarm');
     const pre = events.filter((e) => e.kind === 'pre-alarm');
 
     // ---- main alarms + snoozes → the native alarm plugin
     let nativeOk = true;
     try {
+      const afterSounds = await this.saveAfterSounds(main.map((e) => byId.get(e.alarmId)));
       await AlarmClock.cancelAll();
       for (const e of main) {
         const key = keyOf(e);
+        const after = byId.get(e.alarmId)?.afterStop;
         await AlarmClock.schedule({
           id: numericId(key),
           at: e.at,
@@ -204,6 +210,9 @@ class NativeAlarmScheduler implements SchedulerLike {
           firedKey: key,
           snoozeMinutes: snoozeMins(e.alarmId),
           hasTask: hasTask(e.alarmId),
+          afterSound: after?.enabled ? (afterSounds.get(after.soundId) ?? '') : '',
+          afterVolume: Math.round((after?.volume ?? 0.6) * 100),
+          afterMustFinish: after?.behavior === 'must-finish',
         });
       }
     } catch {
@@ -237,6 +246,31 @@ class NativeAlarmScheduler implements SchedulerLike {
     this.lastKeys = nativeOk ? keys : new Set();
   }
 
+  /**
+   * Make sure each enabled after-stop sound exists as a file natively; the
+   * service plays it after Stop with the app closed. Returns soundId → key for
+   * the ones that are there. One that fails just plays nothing after Stop.
+   */
+  private async saveAfterSounds(list: (Alarm | undefined)[]): Promise<Map<string, string>> {
+    const saved = new Map<string, string>();
+    for (const a of list) {
+      if (!a?.afterStop.enabled || saved.has(a.afterStop.soundId)) continue;
+      const id = a.afterStop.soundId;
+      const key = id.replace(/[^A-Za-z0-9_-]/g, '_');
+      try {
+        if (!(await AlarmClock.hasSound({ key })).exists) {
+          const data = await audioService.soundFileBase64(id);
+          if (!data) continue;
+          await AlarmClock.saveSound({ key, data });
+        }
+        saved.set(id, key);
+      } catch {
+        /* no after-stop sound for this one */
+      }
+    }
+    return saved;
+  }
+
   private notification(e: PlannedEvent, title: string, body: string): LocalNotificationSchema {
     const key = keyOf(e);
     return {
@@ -262,6 +296,12 @@ function fromNotif(n: {
     at: x.at ?? Date.now(),
     firedKey: x.firedKey ?? '',
   };
+}
+
+function nativeConfigKey(a: Alarm | undefined): string {
+  if (!a) return '';
+  const s = a.afterStop;
+  return [a.label, a.snoozeMinutes, a.wakeUpTask.type, s.enabled, s.soundId, s.volume, s.behavior].join('|');
 }
 
 function setsEqual(a: Set<string>, b: Set<string>): boolean {

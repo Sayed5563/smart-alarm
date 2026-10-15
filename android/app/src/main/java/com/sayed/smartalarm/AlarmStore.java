@@ -38,6 +38,10 @@ final class AlarmStore {
     int snoozeMinutes;
     /** Stop opens the app's wake-up task instead of just stopping. */
     boolean hasTask;
+    /** After-stop sound: file key under AlarmClockPlugin.afterSoundFile, or "" for none. */
+    String afterSound;
+    int afterVolume;       // 0..100
+    boolean afterMustFinish;
     /** Only on queued actions: "stop" | "snooze". */
     String action;
     /** Only on a queued snooze: when the service actually re-armed it. */
@@ -53,6 +57,9 @@ final class AlarmStore {
       o.put("firedKey", firedKey == null ? "" : firedKey);
       o.put("snoozeMinutes", snoozeMinutes);
       o.put("hasTask", hasTask);
+      o.put("afterSound", afterSound == null ? "" : afterSound);
+      o.put("afterVolume", afterVolume);
+      o.put("afterMustFinish", afterMustFinish);
       if (action != null) o.put("action", action);
       o.put("snoozeUntil", snoozeUntil);
       return o;
@@ -68,6 +75,9 @@ final class AlarmStore {
       e.firedKey = o.optString("firedKey");
       e.snoozeMinutes = o.optInt("snoozeMinutes");
       e.hasTask = o.optBoolean("hasTask");
+      e.afterSound = o.optString("afterSound");
+      e.afterVolume = o.optInt("afterVolume", 60);
+      e.afterMustFinish = o.optBoolean("afterMustFinish");
       e.action = o.has("action") ? o.optString("action") : null;
       e.snoozeUntil = o.optLong("snoozeUntil");
       return e;
