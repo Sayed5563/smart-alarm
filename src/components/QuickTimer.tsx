@@ -19,7 +19,7 @@ export function QuickSet() {
         <button
           key={m}
           onClick={() => add(m)}
-          className="glass flex h-[3.75rem] flex-col items-center justify-center rounded-2xl transition duration-150 hover:bg-surface-2 active:scale-[0.97]"
+          className="border border-hairline bg-surface flex h-[3.75rem] flex-col items-center justify-center rounded-2xl transition duration-150 hover:bg-surface-2 active:scale-[0.97]"
         >
           <span className="text-lg font-semibold">+{m}</span>
           <span className="text-[11px] text-muted">min</span>

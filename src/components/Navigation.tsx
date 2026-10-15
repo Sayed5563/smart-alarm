@@ -65,7 +65,7 @@ export function Navigation({ route, onNavigate }: { route: Route; onNavigate: (r
               >
                 {ICONS[r]}
               </svg>
-              {t(`nav.${r}` as 'nav.home')}
+              {t(`nav.${r}` as 'nav.alarms')}
             </button>
           );
         })}

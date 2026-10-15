@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timerView } from '@/utils/timer';
+import { durationLabel, timerView } from '@/utils/timer';
 
 describe('timerView', () => {
   it('formats m:ss and h:mm:ss', () => {
@@ -14,5 +14,13 @@ describe('timerView', () => {
   });
   it('progress runs from 1 to 0', () => {
     expect(timerView(100_000, 100_000, 50_000).progress).toBeCloseTo(0.5);
+  });
+});
+
+describe('durationLabel', () => {
+  it('reads naturally', () => {
+    expect(durationLabel(0, 20)).toBe('20 min');
+    expect(durationLabel(1, 0)).toBe('1 h');
+    expect(durationLabel(2, 5)).toBe('2 h 5 min');
   });
 });
