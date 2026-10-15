@@ -10,18 +10,17 @@ export function swipeIntent(dx: number, dy: number): 'none' | 'horizontal' | 've
 }
 
 /**
- * A row you tap to open and swipe left to reveal Delete. Vertical drags pass
- * through to the page scroll (touch-action: pan-y). The Delete button is a
- * real button, so it also works from the keyboard once revealed.
+ * Swipe left to reveal Delete. Opening is the child's own button (so keyboard
+ * and TalkBack work); this only swallows the click that ends a drag, and a tap
+ * on an open row closes it. Vertical drags pass through to the page scroll
+ * (touch-action: pan-y). Keyboard users delete from the editor.
  */
 export function SwipeRow({
   children,
-  onTap,
   onDelete,
   deleteLabel,
 }: {
   children: ReactNode;
-  onTap: () => void;
   onDelete: () => void;
   deleteLabel: string;
 }) {
@@ -34,14 +33,19 @@ export function SwipeRow({
     intent: ReturnType<typeof swipeIntent>;
   } | null>(null);
 
+  /** This gesture moved past the slop, or started on an open row: its click isn't a tap. */
+  const swallowClick = useRef(false);
+
   const onPointerDown = (e: React.PointerEvent) => {
     start.current = { x: e.clientX, y: e.clientY, base: offset, intent: 'none' };
+    swallowClick.current = offset !== 0;
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const s = start.current;
     if (!s) return;
     const dx = e.clientX - s.x;
     if (s.intent === 'none') s.intent = swipeIntent(dx, e.clientY - s.y);
+    if (s.intent !== 'none') swallowClick.current = true;
     if (s.intent !== 'horizontal') return;
     if (!dragging) {
       setDragging(true);
@@ -55,7 +59,6 @@ export function SwipeRow({
     if (!s) return;
     if (s.intent === 'none') {
       if (offset !== 0) setOffset(0); // tap on an open row closes it
-      else onTap();
     } else if (s.intent === 'horizontal') {
       setOffset(offset < -REVEAL / 2 ? -REVEAL : 0);
     }
@@ -78,6 +81,12 @@ export function SwipeRow({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onClickCapture={(e) => {
+          if (!swallowClick.current) return;
+          swallowClick.current = false;
+          e.stopPropagation();
+          e.preventDefault();
+        }}
         onPointerCancel={() => {
           start.current = null;
           setDragging(false);

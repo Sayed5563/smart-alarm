@@ -7,7 +7,13 @@ export function sortByTimeOfDay(alarms: Alarm[]): Alarm[] {
   );
 }
 
-/** A one-off alarm that already rang: shown as off until it's switched back on. */
-export function isSpent(a: Pick<Alarm, 'repeat' | 'lastFiredKey'>): boolean {
-  return a.repeat === 'once' && !!a.lastFiredKey;
+/**
+ * A one-off alarm that already rang: shown as off until it's switched back on.
+ * A snooze still pending means it hasn't finished ringing yet.
+ */
+export function isSpent(
+  a: Pick<Alarm, 'repeat' | 'lastFiredKey' | 'snoozedUntil'>,
+  now = Date.now(),
+): boolean {
+  return a.repeat === 'once' && !!a.lastFiredKey && !((a.snoozedUntil ?? 0) > now);
 }

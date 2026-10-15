@@ -45,8 +45,10 @@ export interface StoreState {
   // ---- alarms
   addAlarm: (partial?: Partial<Alarm>) => Alarm;
   updateAlarm: (id: ID, patch: Partial<Alarm>) => void;
-  deleteAlarm: (id: ID) => void;
-  undoDelete: () => void;
+  /** `undoable`: a user delete that shows the Undo toast. Discarding a new draft isn't. */
+  deleteAlarm: (id: ID, opts?: { undoable?: boolean }) => void;
+  /** Restores `id` only if it's still the last undoable deletion, within 5 s. */
+  undoDelete: (id: ID) => void;
   toggleAlarm: (id: ID, enabled?: boolean) => void;
   duplicateAlarm: (id: ID) => void;
   quickSet: (minutesFromNow: number) => Alarm;
@@ -148,7 +150,7 @@ export const useStore = create<StoreState>()(
           }),
         })),
 
-      deleteAlarm: (id) =>
+      deleteAlarm: (id, opts) =>
         set((s) => {
           const alarm = s.alarms.find((a) => a.id === id);
           return {
@@ -158,7 +160,7 @@ export const useStore = create<StoreState>()(
               activeAlarmIds: p.activeAlarmIds.filter((x) => x !== id),
             })),
             ringing: s.ringing?.alarmId === id ? null : s.ringing,
-            lastDeleted: alarm
+            lastDeleted: alarm && opts?.undoable
               ? {
                   alarm,
                   profileIds: s.profiles.filter((p) => p.activeAlarmIds.includes(id)).map((p) => p.id),
@@ -168,10 +170,11 @@ export const useStore = create<StoreState>()(
           };
         }),
 
-      undoDelete: () =>
+      undoDelete: (id) =>
         set((s) => {
           const d = s.lastDeleted;
-          if (!d || Date.now() - d.at > UNDO_WINDOW_MS) return { lastDeleted: null };
+          if (!d || d.alarm.id !== id) return {};
+          if (Date.now() - d.at > UNDO_WINDOW_MS) return { lastDeleted: null };
           return {
             alarms: [...s.alarms, d.alarm],
             profiles: s.profiles.map((p) =>

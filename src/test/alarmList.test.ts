@@ -25,4 +25,9 @@ describe('isSpent', () => {
     expect(isSpent({ repeat: 'once', lastFiredKey: undefined })).toBe(false);
     expect(isSpent({ repeat: 'daily', lastFiredKey: 'k' })).toBe(false);
   });
+  it('a snoozed once-alarm is not spent: it still rings', () => {
+    const now = 1_000_000;
+    expect(isSpent({ repeat: 'once', lastFiredKey: 'k', snoozedUntil: now + 60_000 }, now)).toBe(false);
+    expect(isSpent({ repeat: 'once', lastFiredKey: 'k', snoozedUntil: now - 1 }, now)).toBe(true);
+  });
 });

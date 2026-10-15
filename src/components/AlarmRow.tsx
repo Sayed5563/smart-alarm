@@ -7,7 +7,15 @@ import { Toggle, cx } from './ui';
 import { useRepeatSummary } from './alarmBits';
 
 /** One alarm in the list: time, label · days, feature icons, and its switch. */
-export function AlarmRow({ alarm, dormant }: { alarm: Alarm; dormant?: boolean }) {
+export function AlarmRow({
+  alarm,
+  dormant,
+  onOpen,
+}: {
+  alarm: Alarm;
+  dormant?: boolean;
+  onOpen: () => void;
+}) {
   const t = useT();
   const hour24 = useStore((s) => s.settings.hour24);
   const toggleAlarm = useStore((s) => s.toggleAlarm);
@@ -19,7 +27,15 @@ export function AlarmRow({ alarm, dormant }: { alarm: Alarm; dormant?: boolean }
 
   return (
     <div className="flex items-center gap-3 px-4 py-3.5">
-      <div className={cx('min-w-0 flex-1 transition-opacity', (!on || dormant) && 'opacity-45')}>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${t('alarms.edit')}: ${name}, ${time}${meridiem ? ` ${meridiem}` : ''}`}
+        className={cx(
+          'min-w-0 flex-1 rounded-xl text-left transition-opacity',
+          (!on || dormant) && 'opacity-45',
+        )}
+      >
         <div className="flex items-baseline gap-1">
           <span className="tnum text-[2.4rem] font-light leading-none tracking-tight">{time}</span>
           {meridiem && <span className="text-sm font-medium text-muted">{meridiem}</span>}
@@ -42,7 +58,7 @@ export function AlarmRow({ alarm, dormant }: { alarm: Alarm; dormant?: boolean }
             </span>
           )}
         </div>
-      </div>
+      </button>
       <div onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}>
         <Toggle
           checked={on}

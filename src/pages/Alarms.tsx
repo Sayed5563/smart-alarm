@@ -38,8 +38,8 @@ export function Alarms() {
     setEditing({ id: a.id, isNew: true });
   };
   const remove = (id: string) => {
-    deleteAlarm(id);
-    toast(t('alarms.deleted'), { label: t('common.undo'), run: undoDelete });
+    deleteAlarm(id, { undoable: true });
+    toast(t('alarms.deleted'), { label: t('common.undo'), run: () => undoDelete(id) });
   };
 
   const dateLabel = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -85,12 +85,12 @@ export function Alarms() {
         <ul className="space-y-2">
           {sorted.map((a) => (
             <li key={a.id}>
-              <SwipeRow
-                onTap={() => setEditing({ id: a.id, isNew: false })}
-                onDelete={() => remove(a.id)}
-                deleteLabel={t('alarms.delete')}
-              >
-                <AlarmRow alarm={a} dormant={activeIds != null && !activeIds.includes(a.id)} />
+              <SwipeRow onDelete={() => remove(a.id)} deleteLabel={t('alarms.delete')}>
+                <AlarmRow
+                  alarm={a}
+                  dormant={activeIds != null && !activeIds.includes(a.id)}
+                  onOpen={() => setEditing({ id: a.id, isNew: false })}
+                />
               </SwipeRow>
             </li>
           ))}
