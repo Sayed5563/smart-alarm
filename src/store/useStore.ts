@@ -138,10 +138,15 @@ export const useStore = create<StoreState>()(
           alarms: s.alarms.map((a) => {
             if (a.id !== id) return a;
             const next = { ...a, ...patch } as Alarm;
-            // Editing the time / repeat re-arms a spent 'once' alarm.
-            if ('hour' in patch || 'minute' in patch || 'repeat' in patch || 'customDays' in patch) {
-              next.lastFiredKey = undefined;
-            }
+            // Changing the time / repeat re-arms a spent 'once' alarm. Compare
+            // values: Save sends the whole alarm, so mere presence of the keys
+            // would wipe the marker of a just-renamed, mid-snooze alarm.
+            const slotChanged =
+              next.hour !== a.hour ||
+              next.minute !== a.minute ||
+              next.repeat !== a.repeat ||
+              next.customDays.join() !== a.customDays.join();
+            if (slotChanged) next.lastFiredKey = undefined;
             next.strongAlert.maxDurationMinutes = clamp(
               next.strongAlert.maxDurationMinutes,
               1,

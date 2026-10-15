@@ -56,7 +56,8 @@ export function AlarmEditor({
       : (getBuiltinSound(id)?.name ?? id);
 
   const save = () => {
-    updateAlarm(draft.id, prepareSave(draft));
+    const live = useStore.getState().alarms.find((a) => a.id === draft.id) ?? alarm;
+    updateAlarm(draft.id, prepareSave(draft, live, Date.now()));
     onClose();
   };
 
